@@ -1,0 +1,364 @@
+<script>
+    import { userStore } from '../lib/stores.svelte.js';
+    import { savePrediction } from '../lib/db.js';
+
+    let { match, existingPrediction = null } = $props();
+
+    let result = $state(existingPrediction?.predictedResult || null);
+    let goalsTier = $state(existingPrediction?.predictedGoalsTier || null);
+    let isSaving = $state(false);
+    let saveMessage = $state('');
+
+    $effect(() => {
+        if (existingPrediction) {
+            result = existingPrediction.predictedResult || null;
+            goalsTier = existingPrediction.predictedGoalsTier || null;
+        }
+    });
+
+    function isPlaceholderTeam(teamName) {
+        if (!teamName) return true;
+        const name = teamName.toLowerCase();
+        return name.includes('winner') ||
+               name.includes('runner-up') ||
+               name.includes('finalist') ||
+               name.includes('tbd');
+    }
+
+    let teamsPlaceholder = $derived(
+        isPlaceholderTeam(match?.team1?.name) || isPlaceholderTeam(match?.team2?.name)
+    );
+
+    let isLocked = $derived.by(() => {
+        if (teamsPlaceholder) return true;
+        if (!match?.kickoff) return false;
+        const kickoffTime = match.kickoff instanceof Date ? match.kickoff.getTime() : new Date(match.kickoff).getTime();
+        return new Date().getTime() >= (kickoffTime - 60 * 60 * 1000);
+    });
+
+    async function handleSave() {
+        if (!result) {
+            saveMessage = 'Please select a result (W/D/L).';
+            return;
+        }
+
+        isSaving = true;
+        saveMessage = '';
+        try {
+            await savePrediction(userStore.user.uid, match.id, result, goalsTier);
+            saveMessage = 'Prediction saved successfully! ✅';
+        } catch (err) {
+            saveMessage = `Error: ${err.message}`;
+        }
+        isSaving = false;
+    }
+</script>
+
+<div class="prediction-card">
+    <div class="header">
+        <h3>Your Prediction</h3>
+        {#if teamsPlaceholder}
+            <span class="badge pending">PENDING TEAMS 🔒</span>
+        {:else if isLocked}
+            <span class="badge locked">LOCKED 🔒</span>
+        {:else}
+            <span class="badge open">OPEN</span>
+        {/if}
+    </div>
+
+    {#if teamsPlaceholder}
+        <div class="pending-info">
+            <span class="pending-icon">ℹ️</span>
+            <div>
+                <strong>Predictions not yet available</strong>
+                <p>This match features placeholder teams that haven't qualified yet. Predictions will open once both competing teams are officially determined from earlier rounds.</p>
+            </div>
+        </div>
+    {/if}
+
+    <div class="form" class:dimmed={teamsPlaceholder}>
+        <div class="section">
+            <h4>1. Match Result (Required)</h4>
+            <div class="options">
+                <button 
+                    class="option-btn {result === 'team1' ? 'selected' : ''}" 
+                    onclick={() => result = 'team1'} 
+                    disabled={isLocked}>
+                    {match.team1.name} Win
+                </button>
+                <button 
+                    class="option-btn {result === 'draw' ? 'selected' : ''}" 
+                    onclick={() => result = 'draw'} 
+                    disabled={isLocked}>
+                    Draw
+                </button>
+                <button 
+                    class="option-btn {result === 'team2' ? 'selected' : ''}" 
+                    onclick={() => result = 'team2'} 
+                    disabled={isLocked}>
+                    {match.team2.name} Win
+                </button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h4>2. Total Goals (Optional)</h4>
+            <div class="options">
+                <button 
+                    class="option-btn {goalsTier === '0-1' ? 'selected' : ''}" 
+                    onclick={() => goalsTier = goalsTier === '0-1' ? null : '0-1'} 
+                    disabled={isLocked}>
+                    0-1 Goals
+                </button>
+                <button 
+                    class="option-btn {goalsTier === '2-3' ? 'selected' : ''}" 
+                    onclick={() => goalsTier = goalsTier === '2-3' ? null : '2-3'} 
+                    disabled={isLocked}>
+                    2-3 Goals
+                </button>
+                <button 
+                    class="option-btn {goalsTier === '4+' ? 'selected' : ''}" 
+                    onclick={() => goalsTier = goalsTier === '4+' ? null : '4+'} 
+                    disabled={isLocked}>
+                    4+ Goals
+                </button>
+            </div>
+            <small>Tap an active option again to deselect.</small>
+        </div>
+
+        {#if !isLocked}
+            <button class="save-btn" onclick={handleSave} disabled={isSaving || !result}>
+                {isSaving ? 'Saving...' : 'Save Prediction'}
+            </button>
+        {/if}
+
+        {#if saveMessage}
+            <div class="message {saveMessage.includes('Error') ? 'error' : 'success'}">
+                {saveMessage}
+            </div>
+        {/if}
+
+        <div class="scoring-guide">
+            <h5>💡 How Scoring Works</h5>
+            <ul>
+                <li>
+                    <span class="points-badge">+6 pts</span> 
+                    <strong>Perfect Combo:</strong> Correct Match Result AND Correct Total Goals Tier.
+                </li>
+                <li>
+                    <span class="points-badge">+3 pts</span> 
+                    <strong>Partial Match:</strong> Correct Match Result OR Correct Total Goals Tier.
+                </li>
+                <li>
+                    <span class="points-badge">0 pts</span> 
+                    <strong>Incorrect:</strong> Neither prediction matches the final outcome.
+                </li>
+            </ul>
+            <div class="strategy-tip">
+                <strong>Strategy Tip:</strong> You should always predict the Goals Tier! Leaving it empty caps your maximum score at +3 points. Guessing the goals tier wrong carries <strong>no penalty</strong>—you will still get 3 points if your match result prediction is correct.
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .prediction-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    h3 {
+        margin: 0;
+        color: var(--color-primary);
+    }
+    .badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    .badge.open {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--color-success);
+    }
+    .badge.locked {
+        background: rgba(239, 68, 68, 0.2);
+        color: var(--color-danger);
+    }
+    .badge.pending {
+        background: rgba(245, 158, 11, 0.2);
+        color: var(--color-accent);
+    }
+
+    .pending-info {
+        background: rgba(245, 158, 11, 0.08);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+        font-size: 0.85rem;
+        line-height: 1.4;
+        color: #ccc;
+    }
+    .pending-info strong {
+        color: var(--color-accent);
+        display: block;
+        margin-bottom: 0.25rem;
+    }
+    .pending-info p {
+        margin: 0;
+    }
+    .pending-icon {
+        font-size: 1.1rem;
+        margin-top: 0.1rem;
+    }
+    
+    .dimmed {
+        opacity: 0.5;
+        pointer-events: none;
+    }
+
+    .section {
+        margin-bottom: 1.5rem;
+    }
+    h4 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1rem;
+        color: #ccc;
+    }
+    .options {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .option-btn {
+        flex: 1;
+        min-width: 100px;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 0.75rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .option-btn:not(:disabled):hover {
+        border-color: var(--color-primary);
+        background: rgba(56, 189, 248, 0.1);
+    }
+    .option-btn.selected {
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+        color: var(--color-bg);
+        font-weight: bold;
+    }
+    .option-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    small {
+        display: block;
+        margin-top: 0.5rem;
+        color: #888;
+    }
+
+    .save-btn {
+        width: 100%;
+        background: linear-gradient(135deg, var(--color-accent), #f59e0b);
+        color: var(--color-bg);
+        border: none;
+        padding: 1rem;
+        border-radius: 6px;
+        font-weight: bold;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: transform 0.1s;
+    }
+    .save-btn:active {
+        transform: scale(0.98);
+    }
+    .save-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: #555;
+        color: #888;
+    }
+
+    .message {
+        margin-top: 1rem;
+        padding: 0.75rem;
+        border-radius: 6px;
+        text-align: center;
+    }
+    .message.success {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--color-success);
+    }
+    .message.error {
+        background: rgba(239, 68, 68, 0.2);
+        color: var(--color-danger);
+    }
+
+    .scoring-guide {
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        text-align: left;
+    }
+    .scoring-guide h5 {
+        margin: 0 0 0.75rem 0;
+        font-size: 0.95rem;
+        color: var(--color-primary);
+        font-weight: bold;
+    }
+    .scoring-guide ul {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 1rem 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .scoring-guide li {
+        font-size: 0.85rem;
+        color: #ccc;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .points-badge {
+        background: rgba(56, 189, 248, 0.15);
+        color: var(--color-primary);
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: bold;
+        min-width: 45px;
+        text-align: center;
+    }
+    .strategy-tip {
+        background: rgba(245, 158, 11, 0.08);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        border-radius: 6px;
+        padding: 0.75rem;
+        font-size: 0.8rem;
+        color: #e2e8f0;
+        line-height: 1.4;
+    }
+    .strategy-tip strong {
+        color: var(--color-accent);
+    }
+</style>
