@@ -45,7 +45,7 @@
             {/if}
             <div class="form-group">
                 <label for="email">Email</label>
-                <input type="email" id="email" bind:value={email} required placeholder="you@company.com" />
+                <input type="email" id="email" bind:value={email} required />
             </div>
             <div class="form-group">
                 <label for="password">Password</label>
