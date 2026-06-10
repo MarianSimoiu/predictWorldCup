@@ -196,7 +196,7 @@
                                 {/if}
                             </div>
 
-                            <a href="#!/match/{match.id}" class="action-button">
+                            <a href="#/match/{match.id}" class="action-button">
                                 {userPrediction ? 'Edit' : 'Predict'}
                             </a>
                         </div>
