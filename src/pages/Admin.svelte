@@ -9,7 +9,7 @@
     let isSyncing = $state(false);
 
     // Hardcode your admin email here to protect the view
-    const ADMIN_EMAIL = 'marian@example.com'; // Change this to the real email later
+    const ADMIN_EMAIL = 'simoiumarian69@gmail.com';
 
     async function handleSync() {
         if (!apiKey) {
