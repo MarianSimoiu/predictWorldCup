@@ -19,7 +19,7 @@
             <a href="#/knockout">Knockouts</a>
             <a href="#/winner">Champion</a>
             <a href="#/leaderboard">Leaderboard</a>
-            {#if userStore.user.email === 'marian@example.com'}
+            {#if userStore.user.email === 'simoiumarian69@gmail.com'}
                 <a href="#/admin" class="admin-link">Admin</a>
             {/if}
             <button onclick={handleLogout} class="logout-btn">Logout</button>
