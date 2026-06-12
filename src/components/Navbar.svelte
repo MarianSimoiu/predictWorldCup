@@ -30,13 +30,13 @@
         </button>
         <div class="links" class:open={menuOpen}>
             {#if userStore.user}
-                <a href="#/dashboard" on:click={closeMenu}>Dashboard</a>
-                <a href="#/groups" on:click={closeMenu}>Groups</a>
-                <a href="#/knockout" on:click={closeMenu}>Knockouts</a>
-                <a href="#/winner" on:click={closeMenu}>Champion</a>
-                <a href="#/leaderboard" on:click={closeMenu}>Leaderboard</a>
+                <a href="#/dashboard" onclick={closeMenu}>Dashboard</a>
+                <a href="#/groups" onclick={closeMenu}>Groups</a>
+                <a href="#/knockout" onclick={closeMenu}>Knockouts</a>
+                <a href="#/winner" onclick={closeMenu}>Champion</a>
+                <a href="#/leaderboard" onclick={closeMenu}>Leaderboard</a>
                 {#if userStore.user.email === 'simoiumarian69@gmail.com'}
-                    <a href="#/admin" class="admin-link" on:click={closeMenu}>Admin</a>
+                    <a href="#/admin" class="admin-link" onclick={closeMenu}>Admin</a>
                 {/if}
                 <button onclick={handleLogout} class="logout-btn">Logout</button>
             {/if}

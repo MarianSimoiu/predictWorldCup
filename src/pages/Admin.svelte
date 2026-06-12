@@ -3,6 +3,7 @@
     import { fetchWCMatches } from '../lib/api.js';
     import { syncMatchesToDb, recalculateAllScores } from '../lib/db.js';
     import { mockMatches } from '../lib/mockData.js';
+    import { push } from 'svelte-spa-router';
 
     let apiKey = $state('');
     let statusMsg = $state('');
@@ -10,6 +11,14 @@
 
     // Hardcode your admin email here to protect the view
     const ADMIN_EMAIL = 'simoiumarian69@gmail.com';
+
+    $effect(() => {
+        if (!userStore.loading) {
+            if (!userStore.user || userStore.user.email !== ADMIN_EMAIL) {
+                push('/dashboard');
+            }
+        }
+    });
 
     async function handleSync() {
         if (!apiKey) {

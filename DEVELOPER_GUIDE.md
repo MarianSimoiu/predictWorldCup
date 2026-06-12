@@ -11,7 +11,7 @@ This is a modern client-side Single Page Application (SPA) built using **Svelte 
 Here is the directory tree and what each component is responsible for:
 
 ```
-busy-turing/
+PredictWorldCup2026/
 ├── src/
 │   ├── lib/                  # Core modules, utilities, and database managers
 │   │   ├── api.js            # External football-data.org API integrations

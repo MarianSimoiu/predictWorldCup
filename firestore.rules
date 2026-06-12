@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: Is the client authenticated?
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: Is the logged-in user the admin?
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.email == 'simoiumarian69@gmail.com';
+    }
+
+    // Helper: Does the logged-in user own the resource?
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ==========================================
+    // 1. Matches Collection
+    // ==========================================
+    match /matches/{matchId} {
+      // Anyone logged in can read the tournament schedule & scores
+      allow read: if isAuthenticated();
+      // Only the admin can add, update, or sync matches
+      allow write: if isAdmin();
+    }
+
+    // ==========================================
+    // 2. Predictions Collection
+    // ==========================================
+    match /predictions/{predictionId} {
+      // Users can read their own predictions.
+      // They can only read other users' predictions once the match kickoff time has passed
+      // (this prevents users from copying each other's active predictions).
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.kickoff < request.time
+      );
+
+      // Allow creating a prediction if:
+      // - The prediction belongs to the current user
+      // - Points are initialized to 0
+      // - The match kickoff time has not passed yet
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.pointsAwarded == 0 &&
+        get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.kickoff > request.time;
+
+      // Allow updating a prediction if:
+      // - The admin is recalculating scores, OR
+      // - The user is updating their own prediction before kickoff, and is NOT trying to alter score calculations/points fields
+      allow update: if isAdmin() || (
+        isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.kickoff > request.time &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pointsAwarded', 'resultCorrect', 'goalsCorrect'])
+      );
+
+      // Users cannot delete predictions
+      allow delete: if false;
+    }
+
+    // ==========================================
+    // 3. Users Collection
+    // ==========================================
+    match /users/{userId} {
+      // Anyone logged in can view the leaderboard (user profiles and scores)
+      allow read: if isAuthenticated();
+
+      // Users can create their own profile document
+      allow create: if isOwner(userId) && 
+        (!request.resource.data.keys().hasAny(['totalPoints', 'correctPredictions']) || 
+         request.resource.data.totalPoints == 0);
+
+      // Users can update their own winnerPrediction, but ONLY the admin can alter totalPoints or correctPredictions
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['totalPoints', 'correctPredictions'])
+      );
+    }
+  }
+}
