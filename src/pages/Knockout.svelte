@@ -131,41 +131,45 @@
 
 <style>
     .knockout-page {
-        padding: 2rem;
+        padding: clamp(1rem, 3vw, 2rem);
         max-width: 1000px;
         margin: 0 auto;
+        width: 100%;
     }
     h1 {
         text-align: center;
         color: var(--color-primary);
-        margin-bottom: 2rem;
+        margin-bottom: clamp(1rem, 3vw, 2rem);
+        font-size: clamp(1.5rem, 5vw, 2.5rem);
     }
     .empty-state {
         text-align: center;
         background: rgba(255, 255, 255, 0.05);
-        padding: 3rem;
+        padding: clamp(2rem, 5vw, 3rem);
         border-radius: 12px;
         color: #aaa;
+        font-size: clamp(0.9rem, 2vw, 1rem);
     }
     .stage-section {
-        margin-bottom: 3rem;
+        margin-bottom: clamp(2rem, 5vw, 3rem);
     }
     h2 {
         color: var(--color-accent);
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        padding-bottom: 0.5rem;
-        margin-bottom: 1.5rem;
+        padding-bottom: clamp(0.5rem, 1vw, 0.75rem);
+        margin-bottom: clamp(1rem, 3vw, 1.5rem);
+        font-size: clamp(1.1rem, 4vw, 1.5rem);
     }
     .matches-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fill, minmax(clamp(250px, 40vw, 300px), 1fr));
+        gap: clamp(1rem, 2vw, 1.5rem);
     }
     .match-card {
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 8px;
-        padding: 1.5rem;
+        padding: clamp(1rem, 2vw, 1.5rem);
         display: flex;
         flex-direction: column;
         gap: 1rem;
@@ -173,7 +177,9 @@
     .match-info {
         display: flex;
         justify-content: space-between;
-        font-size: 0.85rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        font-size: clamp(0.75rem, 2vw, 0.85rem);
         color: #888;
     }
     .status.live { color: var(--color-danger); font-weight: bold; }
@@ -188,37 +194,45 @@
         justify-content: space-between;
         align-items: center;
         font-weight: bold;
+        gap: clamp(0.5rem, 2vw, 1rem);
+        flex-wrap: wrap;
     }
     .team {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: clamp(0.25rem, 1vw, 0.5rem);
         flex: 1;
+        min-width: 0;
+        font-size: clamp(0.8rem, 2vw, 0.95rem);
     }
     .team:last-child {
         justify-content: flex-end;
         text-align: right;
     }
     .flag {
-        width: 24px;
-        height: 16px;
+        width: clamp(18px, 4vw, 24px);
+        height: clamp(12px, 3vw, 16px);
         object-fit: cover;
+        flex-shrink: 0;
     }
     .score {
-        padding: 0.25rem 0.75rem;
+        padding: clamp(0.25rem, 1vw, 0.5rem) clamp(0.5rem, 1vw, 0.75rem);
         background: rgba(0, 0, 0, 0.3);
         border-radius: 4px;
+        font-size: clamp(0.8rem, 2vw, 0.9rem);
+        white-space: nowrap;
     }
     .predict-btn {
         display: block;
         text-align: center;
         background: rgba(56, 189, 248, 0.1);
         color: var(--color-primary);
-        padding: 0.5rem;
+        padding: clamp(0.4rem, 1vw, 0.5rem);
         border-radius: 6px;
         text-decoration: none;
         transition: all 0.2s;
         margin-top: 0.5rem;
+        font-size: clamp(0.8rem, 2vw, 0.9rem);
     }
     .predict-btn:hover {
         background: var(--color-primary);
@@ -228,13 +242,14 @@
         background: rgba(255, 255, 255, 0.02);
         border: 1px solid rgba(255, 255, 255, 0.05);
         border-radius: 8px;
-        padding: 0.5rem;
+        padding: clamp(0.4rem, 1vw, 0.5rem);
         display: flex;
         justify-content: center;
         align-items: center;
-        gap: 0.35rem;
-        font-size: 0.85rem;
+        gap: clamp(0.2rem, 1vw, 0.35rem);
+        font-size: clamp(0.75rem, 2vw, 0.85rem);
         margin-top: 0.5rem;
+        flex-wrap: wrap;
     }
     .user-prediction-preview.empty {
         background: rgba(239, 68, 68, 0.02);
@@ -259,5 +274,23 @@
     }
     .preview-goals {
         color: var(--color-accent);
+    }
+
+    @media (max-width: 640px) {
+        .matches-grid {
+            grid-template-columns: 1fr;
+        }
+        .teams {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .team {
+            justify-content: center;
+            width: 100%;
+        }
+        .team:last-child {
+            justify-content: center;
+            text-align: center;
+        }
     }
 </style>
