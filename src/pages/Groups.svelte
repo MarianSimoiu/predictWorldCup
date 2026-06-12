@@ -81,46 +81,54 @@
 
 <style>
     .groups-page {
-        padding: 2rem;
+        padding: clamp(1rem, 3vw, 2rem);
+        width: 100%;
+    }
+    h1 {
+        font-size: clamp(1.5rem, 5vw, 2.5rem);
+        margin-left: 0;
+        margin-right: 0;
     }
     .groups-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 1.5rem;
-        margin-top: 2rem;
+        grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 40vw, 250px), 1fr));
+        gap: clamp(1rem, 2vw, 1.5rem);
+        margin-top: clamp(1rem, 3vw, 2rem);
     }
     .group-card {
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 12px;
-        padding: 1.5rem;
+        padding: clamp(1rem, 2vw, 1.5rem);
         display: flex;
         flex-direction: column;
     }
     h2 {
         color: var(--color-primary);
-        font-size: 1.25rem;
-        margin-bottom: 1rem;
+        font-size: clamp(1rem, 3vw, 1.25rem);
+        margin-bottom: clamp(0.75rem, 2vw, 1rem);
+        margin-top: 0;
         text-transform: capitalize;
     }
     .team-list {
         list-style: none;
         padding: 0;
-        margin: 0 0 1.5rem 0;
+        margin: 0 0 clamp(1rem, 2vw, 1.5rem) 0;
         flex-grow: 1;
     }
     .team-list li {
-        padding: 0.25rem 0;
+        padding: clamp(0.2rem, 1vw, 0.25rem) 0;
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        font-size: clamp(0.85rem, 2vw, 0.95rem);
     }
     .group-progress {
-        margin-bottom: 1.25rem;
+        margin-bottom: clamp(1rem, 2vw, 1.25rem);
     }
     .progress-text {
         display: block;
-        font-size: 0.85rem;
+        font-size: clamp(0.75rem, 2vw, 0.85rem);
         color: #aaa;
-        margin-bottom: 0.35rem;
+        margin-bottom: clamp(0.2rem, 1vw, 0.35rem);
     }
     .progress-text.complete {
         color: var(--color-success);
@@ -148,13 +156,20 @@
         text-align: center;
         background: rgba(56, 189, 248, 0.1);
         color: var(--color-primary);
-        padding: 0.5rem;
+        padding: clamp(0.4rem, 1vw, 0.5rem);
         border-radius: 6px;
         text-decoration: none;
         transition: all 0.2s;
+        font-size: clamp(0.8rem, 2vw, 0.9rem);
     }
     .view-btn:hover {
         background: var(--color-primary);
         color: var(--color-bg);
+    }
+
+    @media (max-width: 480px) {
+        .groups-grid {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
