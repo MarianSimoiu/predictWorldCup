@@ -3,7 +3,7 @@
     import { userStore, predictionStore } from './lib/stores.svelte.js';
     import { auth } from './lib/firebase.js';
     import { onAuthStateChanged } from 'firebase/auth';
-    import { listenToMatches, listenToUserPredictions } from './lib/db.js';
+    import { listenToMatches, listenToUserPredictions, ensureUserProfile } from './lib/db.js';
     
     import Navbar from './components/Navbar.svelte';
     import Login from './pages/Login.svelte';
@@ -39,6 +39,7 @@
             if (user) {
                 unsubscribeMatches = listenToMatches();
                 unsubscribePredictions = listenToUserPredictions(user.uid);
+                ensureUserProfile(user).catch(err => console.error("Error setting user profile in DB:", err));
             } else {
                 if (unsubscribeMatches) unsubscribeMatches();
                 if (unsubscribePredictions) unsubscribePredictions();

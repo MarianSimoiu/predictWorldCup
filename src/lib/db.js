@@ -234,3 +234,14 @@ export async function saveWinnerPrediction(userId, teamName) {
     const docRef = doc(db, 'users', userId);
     await setDoc(docRef, { winnerPrediction: teamName }, { merge: true });
 }
+
+export async function ensureUserProfile(user) {
+    if (!user) return;
+    const docRef = doc(db, 'users', user.uid);
+    await setDoc(docRef, {
+        displayName: user.displayName || null,
+        email: user.email || null,
+        lastActive: new Date()
+    }, { merge: true });
+}
+

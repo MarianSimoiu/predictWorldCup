@@ -57,7 +57,7 @@
                                 {:else if user.rank === 3}🥉
                                 {:else}{user.rank}{/if}
                             </td>
-                            <td class="name">{user.displayName || user.email.split('@')[0]}</td>
+                            <td class="name">{user.displayName || user.email?.split('@')[0] || `User_${user.id.substring(0, 5)}`}</td>
                             <td class="score">{user.totalPoints || 0}</td>
                             <td class="correct">{user.correctPredictions || 0}</td>
                         </tr>
