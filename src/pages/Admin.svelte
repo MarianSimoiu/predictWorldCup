@@ -90,48 +90,68 @@
 
 <style>
     .admin-panel {
-        padding: 2rem;
+        padding: clamp(1rem, 3vw, 2rem);
         max-width: 800px;
         margin: 0 auto;
+        width: 100%;
     }
     .card {
         background: rgba(255, 255, 255, 0.05);
-        padding: 2rem;
+        padding: clamp(1.5rem, 4vw, 2rem);
         border-radius: 12px;
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    h1 { color: var(--color-danger); }
-    h2 { color: var(--color-primary); margin-top: 0; }
+    h1 { 
+        color: var(--color-danger);
+        margin-left: 0;
+        margin-right: 0;
+    }
+    h2 { 
+        color: var(--color-primary); 
+        margin-top: 0;
+        font-size: clamp(1.1rem, 4vw, 1.5rem);
+    }
+    p {
+        font-size: clamp(0.9rem, 2vw, 1rem);
+        line-height: 1.5;
+    }
     
     .form-group {
-        margin: 1.5rem 0;
+        margin: clamp(1rem, 3vw, 1.5rem) 0;
     }
     label {
         display: block;
         margin-bottom: 0.5rem;
+        font-size: clamp(0.85rem, 2vw, 1rem);
     }
     input {
         width: 100%;
-        padding: 0.75rem;
+        padding: clamp(0.5rem, 2vw, 0.75rem);
         border-radius: 6px;
         border: 1px solid rgba(255, 255, 255, 0.2);
         background: rgba(0, 0, 0, 0.2);
         color: white;
+        font-size: clamp(0.9rem, 2vw, 1rem);
+        box-sizing: border-box;
     }
-    
     
     .actions {
         display: flex;
-        gap: 1rem;
+        gap: clamp(0.5rem, 2vw, 1rem);
+        flex-wrap: wrap;
+        margin: clamp(1.5rem, 3vw, 2rem) 0;
     }
     
     .sync-btn, .recalc-btn, .mock-btn {
         border: none;
-        padding: 0.75rem 1.5rem;
+        padding: clamp(0.5rem, 2vw, 0.75rem) clamp(1rem, 3vw, 1.5rem);
         border-radius: 6px;
         font-weight: bold;
         cursor: pointer;
         transition: transform 0.2s, opacity 0.2s;
+        font-size: clamp(0.8rem, 2vw, 0.95rem);
+        flex: 1;
+        min-width: 120px;
     }
     .sync-btn {
         background: var(--color-danger);
@@ -151,9 +171,10 @@
     }
     
     .status {
-        margin-top: 1.5rem;
-        padding: 1rem;
+        margin-top: clamp(1rem, 3vw, 1.5rem);
+        padding: clamp(0.75rem, 2vw, 1rem);
         border-radius: 6px;
+        font-size: clamp(0.85rem, 2vw, 1rem);
     }
     .status.success {
         background: rgba(16, 185, 129, 0.2);
@@ -162,5 +183,15 @@
     .status.error {
         background: rgba(239, 68, 68, 0.2);
         color: var(--color-danger);
+    }
+
+    @media (max-width: 640px) {
+        .actions {
+            flex-direction: column;
+        }
+        .sync-btn, .recalc-btn, .mock-btn {
+            width: 100%;
+            min-width: unset;
+        }
     }
 </style>
