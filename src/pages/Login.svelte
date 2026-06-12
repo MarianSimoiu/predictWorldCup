@@ -2,6 +2,8 @@
     import { userStore } from '../lib/stores.svelte.js';
     import { auth } from '../lib/firebase.js';
     import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+    import { db } from '../lib/firebase.js';
+    import { doc, setDoc } from 'firebase/firestore';
     import { push } from 'svelte-spa-router';
 
     let isLogin = $state(true);
@@ -19,7 +21,15 @@
             } else {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 await updateProfile(userCredential.user, { displayName });
-                // We will create the user doc in Firestore later
+                
+                // Save user profile immediately to Firestore
+                await setDoc(doc(db, 'users', userCredential.user.uid), {
+                    displayName,
+                    email,
+                    totalPoints: 0,
+                    correctPredictions: 0,
+                    lastUpdated: new Date()
+                }, { merge: true });
             }
             push('/dashboard');
         } catch (err) {
