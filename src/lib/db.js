@@ -208,10 +208,11 @@ export async function recalculateAllScores() {
             
             // Tally user score
             if (!userScores[p.userId]) {
-                userScores[p.userId] = { totalPoints: 0, correctPredictions: 0 };
+                userScores[p.userId] = { totalPoints: 0, correctPredictions: 0, correctGoals: 0 };
             }
             userScores[p.userId].totalPoints += points;
             if (resultCorrect) userScores[p.userId].correctPredictions += 1;
+            if (goalsCorrect) userScores[p.userId].correctGoals += 1;
         }
     });
     
@@ -222,6 +223,7 @@ export async function recalculateAllScores() {
         batch.set(doc(db, 'users', userId), {
             totalPoints: stats.totalPoints,
             correctPredictions: stats.correctPredictions,
+            correctGoals: stats.correctGoals,
             lastUpdated: new Date()
         }, { merge: true });
         count++;
