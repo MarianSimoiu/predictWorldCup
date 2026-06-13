@@ -170,13 +170,14 @@
         }
     }
 
-    @media (max-width: 480px) {
+    @media (width <= 480px) {
         .logo {
             font-size: 1.1rem;
         }
 
         .links {
             padding: 1rem;
+            padding-bottom: 2rem;
         }
     }
 </style>

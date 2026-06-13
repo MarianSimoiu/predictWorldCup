@@ -91,9 +91,3 @@ select {
         top: 3rem;
     }
 }
-@media (width <= 480px) {
-    .links.svelte-d8j1hi {
-        padding: 1rem;
-        padding-bottom: 2rem;
-    }
-}
