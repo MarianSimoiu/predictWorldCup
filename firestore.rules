@@ -80,5 +80,15 @@ service cloud.firestore {
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['totalPoints', 'correctPredictions'])
       );
     }
+
+    // ==========================================
+    // 4. System Collection
+    // ==========================================
+    match /system/{documentId} {
+      // Anyone logged in can read system status
+      allow read: if isAuthenticated();
+      // Only the admin can modify system status
+      allow write: if isAdmin();
+    }
   }
 }

@@ -5,7 +5,7 @@
     import { mockMatches } from '../lib/mockData.js';
     import { push } from 'svelte-spa-router';
     import { db } from '../lib/firebase.js';
-    import { collection, query, orderBy, getDocs, doc, updateDoc } from 'firebase/firestore';
+    import { collection, query, orderBy, getDocs, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 
     let apiKey = $state('');
     let statusMsg = $state('');
@@ -14,6 +14,11 @@
     let allUsers = $state([]);
     let isLoadingUsers = $state(false);
     let usersError = $state(null);
+
+    let lastSyncStatus = $state(null);
+    let lastSyncTime = $state(null);
+    let syncError = $state(null);
+    let syncedMatchesCount = $state(null);
 
     // Hardcode your admin email here to protect the view
     const ADMIN_EMAIL = 'simoiumarian69@gmail.com';
@@ -25,6 +30,23 @@
             } else {
                 loadUsers();
             }
+        }
+    });
+
+    $effect(() => {
+        if (!userStore.loading && userStore.user && userStore.user.email === ADMIN_EMAIL) {
+            const unsubscribe = onSnapshot(doc(db, 'system', 'status'), (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    lastSyncStatus = data.status || null;
+                    lastSyncTime = data.lastSync ? data.lastSync.toDate() : null;
+                    syncError = data.error || null;
+                    syncedMatchesCount = data.matchesSyncedCount || null;
+                }
+            }, (err) => {
+                console.error("Error subscribing to system status:", err);
+            });
+            return unsubscribe;
         }
     });
 
@@ -143,6 +165,24 @@
         {#if statusMsg}
             <div class="status {statusMsg.includes('Error') ? 'error' : 'success'}">
                 {statusMsg}
+            </div>
+        {/if}
+
+        {#if lastSyncTime}
+            <div class="automation-status {lastSyncStatus}">
+                <div class="status-header">
+                    <span class="status-indicator">●</span>
+                    <h3>Background Automation Status: {lastSyncStatus === 'success' ? 'Active' : 'Error'}</h3>
+                </div>
+                <div class="status-details">
+                    <p><strong>Last Sync:</strong> {lastSyncTime.toLocaleString()}</p>
+                    {#if lastSyncStatus === 'success'}
+                        <p><strong>Matches Synced:</strong> {syncedMatchesCount ?? 'N/A'}</p>
+                    {:else if syncError}
+                        <p class="error-msg"><strong>Error Details:</strong> {syncError}</p>
+                    {/if}
+                    <p class="helper-text">Runs automatically in the background every hour via GitHub Actions.</p>
+                </div>
             </div>
         {/if}
     </div>
@@ -370,5 +410,63 @@
             flex: 1;
             width: unset;
         }
+    }
+
+    .automation-status {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.25);
+        border-left: 4px solid #888;
+        text-align: left;
+    }
+    .automation-status.success {
+        border-left-color: var(--color-success, #10b981);
+    }
+    .automation-status.success .status-indicator {
+        color: var(--color-success, #10b981);
+        animation: pulse 2s infinite;
+    }
+    .automation-status.failed {
+        border-left-color: var(--color-danger, #ef4444);
+    }
+    .automation-status.failed .status-indicator {
+        color: var(--color-danger, #ef4444);
+    }
+    .status-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    .status-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        color: white;
+    }
+    .status-details {
+        font-size: 0.85rem;
+        color: #ccc;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    .status-details p {
+        margin: 0;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+    .error-msg {
+        color: var(--color-danger, #ef4444);
+    }
+    .helper-text {
+        color: #888;
+        font-style: italic;
+        margin-top: 0.25rem !important;
+    }
+    @keyframes pulse {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
     }
 </style>

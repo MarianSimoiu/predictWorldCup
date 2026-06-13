@@ -1,11 +1,44 @@
 <script>
-    import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+    import { collection, query, orderBy, onSnapshot, doc } from 'firebase/firestore';
     import { db } from '../lib/firebase.js';
     import ErrorMessage from '../components/ErrorMessage.svelte';
 
     let leaderboard = $state([]);
     let loading = $state(true);
     let error = $state(null);
+    
+    let lastSyncTime = $state(null);
+    let timeRemainingStr = $state('');
+
+    $effect(() => {
+        const unsubscribeStatus = onSnapshot(doc(db, 'system', 'status'), (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.lastSync) {
+                    lastSyncTime = data.lastSync.toDate();
+                }
+            }
+        });
+
+        return unsubscribeStatus;
+    });
+
+    $effect(() => {
+        const updateCountdown = () => {
+            const now = new Date();
+            const nextHour = new Date(now);
+            nextHour.setHours(now.getHours() + 1, 0, 0, 0);
+            const diffMs = nextHour.getTime() - now.getTime();
+            
+            const mins = Math.floor(diffMs / 60000);
+            const secs = Math.floor((diffMs % 60000) / 1000);
+            timeRemainingStr = `${mins}m ${secs.toString().padStart(2, '0')}s`;
+        };
+
+        updateCountdown();
+        const timer = setInterval(updateCountdown, 1000);
+        return () => clearInterval(timer);
+    });
 
     $effect(() => {
         const q = query(collection(db, 'users'));
@@ -50,6 +83,25 @@
 
 <div class="leaderboard-page">
     <h1>🏆 Leaderboard</h1>
+
+    {#if lastSyncTime || timeRemainingStr}
+        <div class="sync-banner">
+            {#if lastSyncTime}
+                <div class="sync-banner-item">
+                    <span class="dot pulse-success">●</span>
+                    <span class="label">Last updated:</span>
+                    <span class="value">{lastSyncTime.toLocaleTimeString()}</span>
+                </div>
+            {/if}
+            {#if timeRemainingStr}
+                <div class="sync-banner-item">
+                    <span class="dot pulse-accent">●</span>
+                    <span class="label">Next update in:</span>
+                    <span class="value countdown">{timeRemainingStr}</span>
+                </div>
+            {/if}
+        </div>
+    {/if}
 
     {#if error}
         <ErrorMessage error={error} context="Leaderboard" />
@@ -204,5 +256,56 @@
         .score {
             font-size: 1.1rem;
         }
+    }
+
+    .sync-banner {
+        display: flex;
+        justify-content: center;
+        gap: clamp(1rem, 4vw, 2rem);
+        margin-bottom: 2rem;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 0.6rem 1.2rem;
+        border-radius: 50px;
+        backdrop-filter: blur(10px);
+        width: fit-content;
+        margin-left: auto;
+        margin-right: auto;
+        flex-wrap: wrap;
+    }
+    .sync-banner-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+    }
+    .sync-banner-item .dot {
+        font-size: 0.75rem;
+    }
+    .sync-banner-item .dot.pulse-success {
+        color: var(--color-success, #10b981);
+        animation: pulse 2s infinite;
+    }
+    .sync-banner-item .dot.pulse-accent {
+        color: var(--color-accent, #fbbf24);
+        animation: pulse 1s infinite;
+    }
+    .sync-banner-item .label {
+        color: #888;
+    }
+    .sync-banner-item .value {
+        color: white;
+        font-weight: 600;
+    }
+    .sync-banner-item .value.countdown {
+        font-family: monospace;
+        font-size: 0.9rem;
+        color: var(--color-accent, #fbbf24);
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 0.5; }
+        50% { opacity: 1; }
+        100% { opacity: 0.5; }
     }
 </style>
