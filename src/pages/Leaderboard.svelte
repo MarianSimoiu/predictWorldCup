@@ -179,4 +179,30 @@
         opacity: 1;
         visibility: visible;
     }
+
+    @media (max-width: 640px) {
+        .leaderboard-page {
+            padding: 1rem;
+        }
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+        }
+        table {
+            min-width: 500px; /* Forces scrolling instead of squishing text unreadably */
+        }
+        th, td {
+            padding: 0.75rem 0.5rem;
+        }
+        th {
+            font-size: 0.75rem;
+        }
+        .rank {
+            width: 40px;
+            font-size: 1rem;
+        }
+        .score {
+            font-size: 1.1rem;
+        }
+    }
 </style>
