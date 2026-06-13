@@ -11,11 +11,13 @@
     let lastSyncTime = $state(null);
     let timeRemainingStr = $state('');
 
-    let filteredLeaderboard = $derived(
-        paidFilter === 'paid'
+    let filteredLeaderboard = $derived.by(() => {
+        const subset = paidFilter === 'paid'
             ? leaderboard.filter(u => u.hasPaid === true)
-            : leaderboard
-    );
+            : leaderboard;
+        // Re-assign sequential ranks within the filtered subset
+        return subset.map((user, i) => ({ ...user, rank: i + 1 }));
+    });
 
     $effect(() => {
         const unsubscribeStatus = onSnapshot(doc(db, 'system', 'status'), (docSnap) => {
