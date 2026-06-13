@@ -93,6 +93,19 @@
         usr.isSaving = false;
     }
 
+    async function handleTogglePaid(usr) {
+        const newValue = !usr.hasPaid;
+        try {
+            const docRef = doc(db, 'users', usr.id);
+            await updateDoc(docRef, { hasPaid: newValue, lastUpdated: new Date() });
+            usr.hasPaid = newValue;
+            const name = usr.displayName || usr.email?.split('@')[0] || usr.id.substring(0, 8);
+            statusMsg = `${name} marked as ${newValue ? 'PAID ✅' : 'NOT PAID ❌'}`;
+        } catch (err) {
+            statusMsg = `Error updating payment status: ${err.message}`;
+        }
+    }
+
     async function handleSync() {
         if (!apiKey) {
             statusMsg = "Please enter the football-data.org API key.";
@@ -189,7 +202,7 @@
 
     <div class="card user-management-card">
         <h2>Manage Predictor Profiles</h2>
-        <p>Assign names and emails to predictors who registered with fallback/placeholder accounts. These names will be instantly used on the leaderboard.</p>
+        <p>Assign names and emails to predictors who registered with fallback/placeholder accounts. These names will be instantly used on the leaderboard. Toggle the 💰 flag to mark who has paid the participation tax.</p>
         
         {#if isLoadingUsers}
             <div class="loading">Loading predictors...</div>
@@ -200,7 +213,16 @@
                 {#each allUsers as usr (usr.id)}
                     <div class="user-row">
                         <div class="user-info">
-                            <span class="uid">ID: {usr.id.substring(0, 8)}...</span>
+                            <div class="user-name-row">
+                                <span class="uid">ID: {usr.id.substring(0, 8)}...</span>
+                                <button
+                                    class="paid-toggle {usr.hasPaid ? 'paid' : 'unpaid'}"
+                                    onclick={() => handleTogglePaid(usr)}
+                                    title={usr.hasPaid ? 'Mark as NOT paid' : 'Mark as PAID'}
+                                >
+                                    {usr.hasPaid ? '💰 Paid' : '❌ Unpaid'}
+                                </button>
+                            </div>
                             <span class="stats">Points: {usr.totalPoints || 0} | Correct: {usr.correctPredictions || 0}</span>
                         </div>
                         <div class="user-inputs">
@@ -358,6 +380,32 @@
     .user-info .stats {
         font-size: 0.9rem;
         color: var(--color-primary);
+    }
+    .user-name-row {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+    }
+    .paid-toggle {
+        border: none;
+        border-radius: 4px;
+        padding: 0.2rem 0.6rem;
+        font-size: 0.78rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: opacity 0.2s, transform 0.1s;
+    }
+    .paid-toggle:hover { opacity: 0.8; transform: scale(1.05); }
+    .paid-toggle.paid {
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .paid-toggle.unpaid {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
     }
     .user-inputs {
         display: flex;

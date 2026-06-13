@@ -74,10 +74,10 @@ service cloud.firestore {
         (!request.resource.data.keys().hasAny(['totalPoints', 'correctPredictions']) || 
          request.resource.data.totalPoints == 0);
 
-      // Users can update their own winnerPrediction, but ONLY the admin can alter totalPoints or correctPredictions
+      // Users can update their own winnerPrediction, but ONLY the admin can alter totalPoints, correctPredictions, or hasPaid
       allow update: if isAdmin() || (
         isOwner(userId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['totalPoints', 'correctPredictions'])
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['totalPoints', 'correctPredictions', 'hasPaid'])
       );
     }
 

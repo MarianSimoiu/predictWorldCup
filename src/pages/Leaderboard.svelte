@@ -6,9 +6,16 @@
     let leaderboard = $state([]);
     let loading = $state(true);
     let error = $state(null);
+    let paidFilter = $state('all'); // 'all' | 'paid'
     
     let lastSyncTime = $state(null);
     let timeRemainingStr = $state('');
+
+    let filteredLeaderboard = $derived(
+        paidFilter === 'paid'
+            ? leaderboard.filter(u => u.hasPaid === true)
+            : leaderboard
+    );
 
     $effect(() => {
         const unsubscribeStatus = onSnapshot(doc(db, 'system', 'status'), (docSnap) => {
@@ -108,6 +115,20 @@
     {:else if loading}
         <div class="loading">Loading rankings...</div>
     {:else}
+        <div class="filter-bar">
+            <span class="filter-label">Show:</span>
+            <div class="filter-tabs">
+                <button
+                    class="filter-tab {paidFilter === 'all' ? 'active' : ''}"
+                    onclick={() => paidFilter = 'all'}
+                >🌍 All Predictors</button>
+                <button
+                    class="filter-tab {paidFilter === 'paid' ? 'active' : ''}"
+                    onclick={() => paidFilter = 'paid'}
+                >💰 Paid Only</button>
+            </div>
+        </div>
+
         <div class="table-container">
             <table>
                 <thead>
@@ -126,7 +147,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {#each leaderboard as user (user.id)}
+                    {#each filteredLeaderboard as user (user.id)}
                         <tr class:top-3={user.rank <= 3}>
                             <td class="rank">
                                 {#if user.rank === 1}🥇
@@ -134,12 +155,22 @@
                                 {:else if user.rank === 3}🥉
                                 {:else}{user.rank}{/if}
                             </td>
-                            <td class="name">{user.displayName || user.email?.split('@')[0] || `User_${user.id.substring(0, 5)}`}</td>
+                            <td class="name">
+                                {user.displayName || user.email?.split('@')[0] || `User_${user.id.substring(0, 5)}`}
+                                {#if user.hasPaid}
+                                    <span class="paid-badge" title="Paid participation tax">💰</span>
+                                {/if}
+                            </td>
                             <td class="score">{user.totalPoints || 0}</td>
                             <td class="correct">{user.correctPredictions || 0}</td>
                             <td class="goals-correct">{user.correctGoals || 0}</td>
                         </tr>
                     {/each}
+                    {#if filteredLeaderboard.length === 0}
+                        <tr>
+                            <td colspan="5" class="empty-msg">No paid participants found yet.</td>
+                        </tr>
+                    {/if}
                 </tbody>
             </table>
         </div>
@@ -194,6 +225,60 @@
     .rank { width: 60px; text-align: center; font-size: 1.2rem; }
     .score { font-size: 1.25rem; font-weight: bold; color: var(--color-primary); }
     .correct, .goals-correct { text-align: center; color: #aaa; }
+    .name { position: relative; }
+    .paid-badge {
+        margin-left: 0.4rem;
+        font-size: 0.85em;
+        vertical-align: middle;
+        opacity: 0.85;
+    }
+    .empty-msg {
+        text-align: center;
+        color: #888;
+        font-style: italic;
+        padding: 2rem;
+    }
+
+    .filter-bar {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+    }
+    .filter-label {
+        color: #888;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .filter-tabs {
+        display: flex;
+        gap: 0.4rem;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 50px;
+        padding: 0.25rem;
+    }
+    .filter-tab {
+        background: transparent;
+        border: none;
+        color: #aaa;
+        padding: 0.35rem 1rem;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+        font-weight: 500;
+    }
+    .filter-tab:hover {
+        color: white;
+    }
+    .filter-tab.active {
+        background: var(--color-primary, #6366f1);
+        color: white;
+        font-weight: bold;
+    }
 
     .tooltip-icon {
         cursor: help;
