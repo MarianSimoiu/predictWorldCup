@@ -8,6 +8,13 @@
     let userStats = $state({ totalPoints: 0, correctPredictions: 0, rank: '-' });
     let error = $state(null);
 
+    // Tab state: 'upcoming' | 'predictions'
+    let activeTab = $state('upcoming');
+
+    // Filter and sort states for predictions
+    let sortType = $state('date'); // 'date' | 'points_desc' | 'points_asc'
+    let filterUpcomingOnly = $state(false);
+
     // Format time and date for Bucharest timezone (Europe/Bucharest)
     function formatBucharestDateTime(date) {
         if (!(date instanceof Date) || isNaN(date)) return '';
@@ -63,16 +70,35 @@
             .slice(0, 8);
     }
 
-    // Reactive list of user predictions sorted by kickoff date (newest first)
+    // Reactive list of user predictions sorted and filtered dynamically
     let userPredictionsList = $derived.by(() => {
         if (predictionStore.loading || matchStore.loading) return [];
-        return Object.entries(predictionStore.predictions)
+        
+        let list = Object.entries(predictionStore.predictions)
             .map(([matchId, prediction]) => {
                 const match = matchStore.matches.find(m => String(m.id) === String(matchId));
                 return { prediction, match };
             })
-            .filter(item => item.match)
-            .sort((a, b) => new Date(b.match.kickoff) - new Date(a.match.kickoff));
+            .filter(item => item.match);
+
+        // Filter: Next games only (eliminate finished games)
+        if (filterUpcomingOnly) {
+            list = list.filter(item => item.match.status !== 'FINISHED');
+        }
+
+        // Sort logic
+        if (sortType === 'date') {
+            // Chronological order: first game of the tournament first (oldest kickoff date first)
+            list.sort((a, b) => new Date(a.match.kickoff) - new Date(b.match.kickoff));
+        } else if (sortType === 'points_desc') {
+            // Sort by points descending (highest first)
+            list.sort((a, b) => (b.prediction.pointsAwarded || 0) - (a.prediction.pointsAwarded || 0));
+        } else if (sortType === 'points_asc') {
+            // Sort by points ascending (lowest first)
+            list.sort((a, b) => (a.prediction.pointsAwarded || 0) - (b.prediction.pointsAwarded || 0));
+        }
+
+        return list;
     });
 
     $effect(() => {
@@ -140,192 +166,229 @@
         </div>
     </div>
 
-    <!-- Upcoming Matches Section -->
-    <div class="upcoming-section">
-        <h2>📅 Upcoming Matches</h2>
-        
-        {#if matchStore.loading}
-            <div class="loading-message">Loading matches...</div>
-        {:else if matchStore.error}
-            <ErrorMessage error={matchStore.error} context="Upcoming Matches" />
-        {:else if getUpcomingMatches().length === 0}
-            <div class="no-matches">No upcoming matches</div>
-        {:else}
-            <div class="matches-list">
-                {#each getUpcomingMatches() as match (match.id)}
-                    {@const lockStatus = getLockStatus(match)}
-                    {@const formattedTime = formatBucharestDateTime(new Date(match.kickoff))}
-                    {@const userPrediction = predictionStore.predictions[match.id]}
-                    <div class="match-card" class:locked={lockStatus.status === 'locked'} class:live={lockStatus.status === 'live'} class:finished={match.status === 'FINISHED'}>
-                        <div class="match-teams">
-                            <div class="team team-1">
-                                {#if match.team1?.crest}
-                                    <img src={match.team1.crest} alt={match.team1.name} class="team-crest" />
-                                {/if}
-                                <span class="team-name">{match.team1?.name || 'TBD'}</span>
-                            </div>
-                            <div class="vs">VS</div>
-                            <div class="team team-2">
-                                <span class="team-name">{match.team2?.name || 'TBD'}</span>
-                                {#if match.team2?.crest}
-                                    <img src={match.team2.crest} alt={match.team2.name} class="team-crest" />
-                                {/if}
-                            </div>
-                        </div>
+    <!-- Tabbed Navigation Bar -->
+    <div class="tabs-navigation">
+        <button 
+            class="tab-btn" 
+            class:active={activeTab === 'upcoming'} 
+            onclick={() => activeTab = 'upcoming'}>
+            📅 Upcoming Matches ({matchStore.loading ? '...' : getUpcomingMatches().length})
+        </button>
+        <button 
+            class="tab-btn" 
+            class:active={activeTab === 'predictions'} 
+            onclick={() => activeTab = 'predictions'}>
+            🔮 My Predictions ({predictionStore.loading ? '...' : userPredictionsList.length})
+        </button>
+    </div>
 
-                        <div class="match-details">
-                            <div class="time-info">
-                                <span class="time bucharest">🕒 {formattedTime}</span>
-                            </div>
-
-                            <div class="lock-status" style="color: {lockStatus.color}">
-                                {lockStatus.text}
-                            </div>
-
-                            <div class="prediction-info">
-                                {#if userPrediction}
-                                    <div class="predictions-summary">
-                                        <div class="pred-row">
-                                            <span class="pred-label">Winner:</span>
-                                            <strong class="pred-val">
-                                                {userPrediction.predictedResult === 'team1' ? match.team1?.name || 'Team 1' : 
-                                                 userPrediction.predictedResult === 'team2' ? match.team2?.name || 'Team 2' : 
-                                                 'Draw'}
-                                            </strong>
-                                        </div>
-                                        <div class="pred-row">
-                                            <span class="pred-label">Goals:</span>
-                                            <strong class="pred-val">
-                                                {userPrediction.predictedGoalsTier ? `${userPrediction.predictedGoalsTier} Goals` : 'None'}
-                                            </strong>
-                                        </div>
-                                    </div>
-                                {:else}
-                                    <span class="no-prediction">No prediction yet</span>
-                                {/if}
+    <!-- Tab Contents -->
+    {#if activeTab === 'upcoming'}
+        <!-- Upcoming Matches Section -->
+        <div class="upcoming-section animate-fade-in">
+            {#if matchStore.loading}
+                <div class="loading-message">Loading matches...</div>
+            {:else if matchStore.error}
+                <ErrorMessage error={matchStore.error} context="Upcoming Matches" />
+            {:else if getUpcomingMatches().length === 0}
+                <div class="no-matches">No upcoming matches</div>
+            {:else}
+                <div class="matches-list">
+                    {#each getUpcomingMatches() as match (match.id)}
+                        {@const lockStatus = getLockStatus(match)}
+                        {@const formattedTime = formatBucharestDateTime(new Date(match.kickoff))}
+                        {@const userPrediction = predictionStore.predictions[match.id]}
+                        <div class="match-card" class:locked={lockStatus.status === 'locked'} class:live={lockStatus.status === 'live'} class:finished={match.status === 'FINISHED'}>
+                            <div class="match-teams">
+                                <div class="team team-1">
+                                    {#if match.team1?.crest}
+                                        <img src={match.team1.crest} alt={match.team1.name} class="team-crest" />
+                                    {/if}
+                                    <span class="team-name">{match.team1?.name || 'TBD'}</span>
+                                </div>
+                                <div class="vs">VS</div>
+                                <div class="team team-2">
+                                    <span class="team-name">{match.team2?.name || 'TBD'}</span>
+                                    {#if match.team2?.crest}
+                                        <img src={match.team2.crest} alt={match.team2.name} class="team-crest" />
+                                    {/if}
+                                </div>
                             </div>
 
-                            {#if match.status !== 'FINISHED'}
-                                <a href="#/match/{match.id}" class="action-button">
-                                    {userPrediction ? 'Edit' : 'Predict'}
-                                </a>
-                            {:else}
-                                <div class="locked-predictions-indicator">
-                                    <div class="lock-status-badge">
-                                        <span class="lock-icon">🔒</span>
-                                        <span class="lock-text">Locked</span>
-                                    </div>
+                            <div class="match-details">
+                                <div class="time-info">
+                                    <span class="time bucharest">🕒 {formattedTime}</span>
+                                </div>
+
+                                <div class="lock-status" style="color: {lockStatus.color}">
+                                    {lockStatus.text}
+                                </div>
+
+                                <div class="prediction-info">
                                     {#if userPrediction}
-                                        <div class="points-earned-badge" class:pts-6={userPrediction.pointsAwarded === 6} class:pts-3={userPrediction.pointsAwarded === 3} class:pts-0={userPrediction.pointsAwarded === 0}>
-                                            +{userPrediction.pointsAwarded} pts
+                                        <div class="predictions-summary">
+                                            <div class="pred-row">
+                                                <span class="pred-label">Winner:</span>
+                                                <strong class="pred-val">
+                                                    {userPrediction.predictedResult === 'team1' ? match.team1?.name || 'Team 1' : 
+                                                     userPrediction.predictedResult === 'team2' ? match.team2?.name || 'Team 2' : 
+                                                     'Draw'}
+                                                </strong>
+                                            </div>
+                                            <div class="pred-row">
+                                                <span class="pred-label">Goals:</span>
+                                                <strong class="pred-val">
+                                                    {userPrediction.predictedGoalsTier ? `${userPrediction.predictedGoalsTier} Goals` : 'None'}
+                                                </strong>
+                                            </div>
                                         </div>
+                                    {:else}
+                                        <span class="no-prediction">No prediction yet</span>
                                     {/if}
                                 </div>
-                            {/if}
-                        </div>
-                    </div>
-                {/each}
-            </div>
-        {/if}
-    </div>
 
-    <!-- My Predictions Section -->
-    <div class="predictions-section">
-        <h2>🔮 My Predictions</h2>
-        
-        {#if predictionStore.loading || matchStore.loading}
-            <div class="loading-message">Loading predictions...</div>
-        {:else if userPredictionsList.length === 0}
-            <div class="no-predictions">
-                <p>You haven't made any predictions yet.</p>
-                <a href="#/groups" class="predict-now-btn">Start Predicting</a>
-            </div>
-        {:else}
-            <div class="predictions-history-list">
-                {#each userPredictionsList as item (item.prediction.id)}
-                    {@const match = item.match}
-                    {@const pred = item.prediction}
-                    {@const formattedTime = formatBucharestDateTime(new Date(match.kickoff))}
-                    <div class="prediction-history-card" class:card-finished={match.status === 'FINISHED'} class:card-live={match.status === 'LIVE'}>
-                        
-                        <!-- Header: Stage & Time -->
-                        <div class="card-header">
-                            <span class="stage-tag">{match.stage.replace(/_/g, ' ')}</span>
-                            <span class="match-time">🕒 {formattedTime}</span>
-                        </div>
-
-                        <!-- Teams & Score -->
-                        <div class="card-main">
-                            <div class="history-team home">
-                                {#if match.team1?.crest}
-                                    <img src={match.team1.crest} alt={match.team1.name} class="team-flag" />
-                                {/if}
-                                <span class="team-name">{match.team1?.name}</span>
-                            </div>
-
-                            <div class="history-score">
-                                {#if match.status === 'FINISHED' || match.status === 'LIVE'}
-                                    <span class="score-text">{match.score?.team1} - {match.score?.team2}</span>
-                                    {#if match.status === 'LIVE'}
-                                        <span class="live-tag">LIVE</span>
-                                    {/if}
+                                {#if match.status !== 'FINISHED'}
+                                    <a href="#/match/{match.id}" class="action-button">
+                                        {userPrediction ? 'Edit' : 'Predict'}
+                                    </a>
                                 {:else}
-                                    <span class="vs-text">VS</span>
-                                {/if}
-                            </div>
-
-                            <div class="history-team away">
-                                <span class="team-name">{match.team2?.name}</span>
-                                {#if match.team2?.crest}
-                                    <img src={match.team2.crest} alt={match.team2.name} class="team-flag" />
-                                {/if}
-                            </div>
-                        </div>
-
-                        <!-- Bets & Points -->
-                        <div class="card-footer">
-                            <div class="bets-summary">
-                                <div class="bet-item">
-                                    <span class="bet-label">Winner Choice:</span>
-                                    <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.resultCorrect} class:incorrect={match.status === 'FINISHED' && pred.resultCorrect === false}>
-                                        {pred.predictedResult === 'team1' ? match.team1?.name : 
-                                         pred.predictedResult === 'team2' ? match.team2?.name : 
-                                         'Draw'}
-                                        {#if match.status === 'FINISHED'}
-                                            {pred.resultCorrect ? '✅' : '❌'}
+                                    <div class="locked-predictions-indicator">
+                                        <div class="lock-status-badge">
+                                            <span class="lock-icon">🔒</span>
+                                            <span class="lock-text">Locked</span>
+                                        </div>
+                                        {#if userPrediction}
+                                            <div class="points-earned-badge" class:pts-6={userPrediction.pointsAwarded === 6} class:pts-3={userPrediction.pointsAwarded === 3} class:pts-0={userPrediction.pointsAwarded === 0}>
+                                                +{userPrediction.pointsAwarded} pts
+                                            </div>
                                         {/if}
-                                    </span>
-                                </div>
-                                <div class="bet-item">
-                                    <span class="bet-label">Goals Choice:</span>
-                                    <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.goalsCorrect} class:incorrect={match.status === 'FINISHED' && pred.goalsCorrect === false}>
-                                        {pred.predictedGoalsTier ? `${pred.predictedGoalsTier} Goals` : 'None'}
-                                        {#if match.status === 'FINISHED' && pred.predictedGoalsTier}
-                                            {pred.goalsCorrect ? '✅' : '❌'}
-                                        {/if}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div class="points-summary">
-                                {#if match.status === 'FINISHED'}
-                                    <div class="points-display" class:pts-perfect={pred.pointsAwarded === 6} class:pts-partial={pred.pointsAwarded === 3} class:pts-zero={pred.pointsAwarded === 0}>
-                                        <span class="pts-val">+{pred.pointsAwarded}</span>
-                                        <span class="pts-lbl">pts</span>
                                     </div>
-                                {:else if match.status === 'LIVE'}
-                                    <div class="status-badge live">LIVE</div>
-                                {:else}
-                                    <div class="status-badge pending">PENDING</div>
                                 {/if}
                             </div>
                         </div>
-
+                    {/each}
+                </div>
+            {/if}
+        </div>
+    {:else}
+        <!-- My Predictions Section -->
+        <div class="predictions-section animate-fade-in">
+            {#if predictionStore.loading || matchStore.loading}
+                <div class="loading-message">Loading predictions...</div>
+            {:else}
+                <!-- Controls: Sort & Filter -->
+                <div class="controls-bar">
+                    <div class="filter-control">
+                        <label class="checkbox-container">
+                            <input type="checkbox" bind:checked={filterUpcomingOnly} />
+                            <span class="checkmark"></span>
+                            Show next games only
+                        </label>
                     </div>
-                {/each}
-            </div>
-        {/if}
-    </div>
+                    
+                    <div class="sort-control">
+                        <span class="sort-label">Sort by:</span>
+                        <select bind:value={sortType} class="sort-select">
+                            <option value="date">📅 Match Date (Chronological)</option>
+                            <option value="points_desc">📈 Points (High to Low)</option>
+                            <option value="points_asc">📉 Points (Low to High)</option>
+                        </select>
+                    </div>
+                </div>
+
+                {#if userPredictionsList.length === 0}
+                    <div class="no-predictions">
+                        <p>No predictions match the selected filter.</p>
+                        <a href="#/groups" class="predict-now-btn">Start Predicting</a>
+                    </div>
+                {:else}
+                    <div class="predictions-history-list">
+                        {#each userPredictionsList as item (item.prediction.id)}
+                            {@const match = item.match}
+                            {@const pred = item.prediction}
+                            {@const formattedTime = formatBucharestDateTime(new Date(match.kickoff))}
+                            <div class="prediction-history-card" class:card-finished={match.status === 'FINISHED'} class:card-live={match.status === 'LIVE'}>
+                                
+                                <!-- Header: Stage & Time -->
+                                <div class="card-header">
+                                    <span class="stage-tag">{match.stage.replace(/_/g, ' ')}</span>
+                                    <span class="match-time">🕒 {formattedTime}</span>
+                                </div>
+
+                                <!-- Teams & Score -->
+                                <div class="card-main">
+                                    <div class="history-team home">
+                                        {#if match.team1?.crest}
+                                            <img src={match.team1.crest} alt={match.team1.name} class="team-flag" />
+                                        {/if}
+                                        <span class="team-name">{match.team1?.name}</span>
+                                    </div>
+
+                                    <div class="history-score">
+                                        {#if match.status === 'FINISHED' || match.status === 'LIVE'}
+                                            <span class="score-text">{match.score?.team1} - {match.score?.team2}</span>
+                                            {#if match.status === 'LIVE'}
+                                                <span class="live-tag">LIVE</span>
+                                            {/if}
+                                        {:else}
+                                            <span class="vs-text">VS</span>
+                                        {/if}
+                                    </div>
+
+                                    <div class="history-team away">
+                                        <span class="team-name">{match.team2?.name}</span>
+                                        {#if match.team2?.crest}
+                                            <img src={match.team2.crest} alt={match.team2.name} class="team-flag" />
+                                        {/if}
+                                    </div>
+                                </div>
+
+                                <!-- Bets & Points -->
+                                <div class="card-footer">
+                                    <div class="bets-summary">
+                                        <div class="bet-item">
+                                            <span class="bet-label">Winner Choice:</span>
+                                            <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.resultCorrect} class:incorrect={match.status === 'FINISHED' && pred.resultCorrect === false}>
+                                                {pred.predictedResult === 'team1' ? match.team1?.name : 
+                                                 pred.predictedResult === 'team2' ? match.team2?.name : 
+                                                 'Draw'}
+                                                {#if match.status === 'FINISHED'}
+                                                    {pred.resultCorrect ? '✅' : '❌'}
+                                                {/if}
+                                            </span>
+                                        </div>
+                                        <div class="bet-item">
+                                            <span class="bet-label">Goals Choice:</span>
+                                            <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.goalsCorrect} class:incorrect={match.status === 'FINISHED' && pred.goalsCorrect === false}>
+                                                {pred.predictedGoalsTier ? `${pred.predictedGoalsTier} Goals` : 'None'}
+                                                {#if match.status === 'FINISHED' && pred.predictedGoalsTier}
+                                                    {pred.goalsCorrect ? '✅' : '❌'}
+                                                {/if}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="points-summary">
+                                        {#if match.status === 'FINISHED'}
+                                            <div class="points-display" class:pts-perfect={pred.pointsAwarded === 6} class:pts-partial={pred.pointsAwarded === 3} class:pts-zero={pred.pointsAwarded === 0}>
+                                                <span class="pts-val">+{pred.pointsAwarded}</span>
+                                                <span class="pts-lbl">pts</span>
+                                            </div>
+                                        {:else if match.status === 'LIVE'}
+                                            <div class="status-badge live">LIVE</div>
+                                        {:else}
+                                            <div class="status-badge pending">PENDING</div>
+                                        {/if}
+                                    </div>
+                                </div>
+
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
+            {/if}
+        </div>
+    {/if}
 </div>
 
 <style>
@@ -346,7 +409,7 @@
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1.5rem;
-        margin-bottom: 3rem;
+        margin-bottom: 2.5rem;
     }
 
     .stat-card {
@@ -379,18 +442,163 @@
         text-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
     }
 
-    /* Upcoming Matches Section */
-    .upcoming-section {
-        margin-bottom: 4rem;
-        padding-top: 2rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    /* Tabbed Navigation */
+    .tabs-navigation {
+        display: flex;
+        gap: 0.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        margin-bottom: 2rem;
     }
 
-    .upcoming-section h2, .predictions-section h2 {
-        margin: 0 0 1.5rem 0;
+    .tab-btn {
+        background: transparent;
+        border: none;
+        color: #888;
+        padding: 0.75rem 1.5rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+    }
+
+    .tab-btn:hover {
         color: #fff;
-        font-size: 1.75rem;
-        font-weight: 700;
+    }
+
+    .tab-btn.active {
+        color: var(--color-primary);
+        border-bottom-color: var(--color-primary);
+        text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    }
+
+    /* Tab contents animation */
+    .animate-fade-in {
+        animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Controls Bar (Sort & Filter) */
+    .controls-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    /* Custom Checkbox */
+    .checkbox-container {
+        display: flex;
+        align-items: center;
+        position: relative;
+        padding-left: 2rem;
+        cursor: pointer;
+        font-size: 0.95rem;
+        color: #ccc;
+        user-select: none;
+        height: 1.5rem;
+    }
+
+    .checkbox-container input {
+        position: absolute;
+        opacity: 0;
+        cursor: pointer;
+        height: 0;
+        width: 0;
+    }
+
+    .checkmark {
+        position: absolute;
+        top: 0.125rem;
+        left: 0;
+        height: 1.25rem;
+        width: 1.25rem;
+        background-color: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+        transition: all 0.2s ease;
+    }
+
+    .checkbox-container:hover input ~ .checkmark {
+        border-color: var(--color-primary);
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .checkbox-container input:checked ~ .checkmark {
+        background-color: var(--color-primary);
+        border-color: var(--color-primary);
+    }
+
+    .checkmark:after {
+        content: "";
+        position: absolute;
+        display: none;
+    }
+
+    .checkbox-container input:checked ~ .checkmark:after {
+        display: block;
+    }
+
+    .checkbox-container .checkmark:after {
+        left: 7px;
+        top: 3px;
+        width: 4px;
+        height: 8px;
+        border: solid #0f172a;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+    }
+
+    /* Custom Select */
+    .sort-control {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .sort-label {
+        font-size: 0.95rem;
+        color: #888;
+        font-weight: 500;
+    }
+
+    .sort-select {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #fff;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        outline: none;
+        transition: all 0.2s ease;
+    }
+
+    .sort-select:hover {
+        border-color: var(--color-primary);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .sort-select option {
+        background: #0f172a;
+        color: #fff;
+    }
+
+    /* Upcoming Matches Section */
+    .upcoming-section, .predictions-section {
+        margin-bottom: 2rem;
     }
 
     .loading-message,
@@ -636,13 +844,7 @@
         border: 1px solid rgba(239, 68, 68, 0.2);
     }
 
-    /* Predictions Section */
-    .predictions-section {
-        padding-top: 2rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        margin-bottom: 3rem;
-    }
-
+    /* Predictions List */
     .predict-now-btn {
         display: inline-block;
         margin-top: 1rem;
@@ -987,6 +1189,30 @@
         .points-summary {
             justify-content: flex-end;
         }
+
+        .tabs-navigation {
+            gap: 0.25rem;
+        }
+
+        .tab-btn {
+            font-size: 0.95rem;
+            padding: 0.5rem 0.75rem;
+        }
+
+        .controls-bar {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 1rem;
+            padding: 0.75rem;
+        }
+
+        .sort-control {
+            justify-content: space-between;
+        }
+
+        .sort-select {
+            width: 70%;
+        }
     }
 
     @media (max-width: 480px) {
@@ -997,6 +1223,23 @@
         .bets-summary {
             flex-direction: column;
             gap: 0.5rem;
+        }
+
+        .tab-btn {
+            font-size: 0.85rem;
+            padding: 0.5rem 0.5rem;
+            flex: 1;
+            text-align: center;
+        }
+
+        .sort-select {
+            width: 100%;
+        }
+
+        .sort-control {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.35rem;
         }
     }
 </style>
