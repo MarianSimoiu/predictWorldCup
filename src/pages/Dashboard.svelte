@@ -11,6 +11,13 @@
     // Tab state: 'upcoming' | 'predictions'
     let activeTab = $state('upcoming');
 
+    // Reactive clock so lock status updates without a full page reload
+    let now = $state(new Date());
+    $effect(() => {
+        const interval = setInterval(() => { now = new Date(); }, 30000);
+        return () => clearInterval(interval);
+    });
+
     // Filter and sort states for predictions
     let sortType = $state('date'); // 'date' | 'points_desc' | 'points_asc'
     let filterUpcomingOnly = $state(false);
@@ -30,8 +37,7 @@
     }
 
     // Helper function to calculate lock status
-    function getLockStatus(match) {
-        const now = new Date();
+    function getLockStatus(match, currentTime) {
         const kickoffTime = new Date(match.kickoff);
         const lockTime = new Date(kickoffTime.getTime() - 60 * 60 * 1000); // 1 hour before
 
@@ -43,12 +49,12 @@
             return { status: 'live', text: 'LIVE NOW', color: '#ff4444' };
         }
 
-        if (now >= lockTime) {
+        if (currentTime >= lockTime) {
             return { status: 'locked', text: 'LOCKED', color: '#ff6b6b' };
         }
 
         // Calculate time remaining until lock
-        const diff = lockTime - now;
+        const diff = lockTime - currentTime;
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
@@ -195,7 +201,7 @@
             {:else}
                 <div class="matches-list">
                     {#each getUpcomingMatches() as match (match.id)}
-                        {@const lockStatus = getLockStatus(match)}
+                        {@const lockStatus = getLockStatus(match, now)}
                         {@const formattedTime = formatBucharestDateTime(new Date(match.kickoff))}
                         {@const userPrediction = predictionStore.predictions[match.id]}
                         <div class="match-card" class:locked={lockStatus.status === 'locked'} class:live={lockStatus.status === 'live'} class:finished={match.status === 'FINISHED'}>
@@ -247,7 +253,7 @@
                                     {/if}
                                 </div>
 
-                                {#if match.status !== 'FINISHED'}
+                                {#if lockStatus.status === 'unlocked'}
                                     <a href="#/match/{match.id}" class="action-button">
                                         {userPrediction ? 'Edit' : 'Predict'}
                                     </a>
@@ -257,7 +263,7 @@
                                             <span class="lock-icon">🔒</span>
                                             <span class="lock-text">Locked</span>
                                         </div>
-                                        {#if userPrediction}
+                                        {#if userPrediction && match.status === 'FINISHED'}
                                             <div class="points-earned-badge" class:pts-6={userPrediction.pointsAwarded === 6} class:pts-3={userPrediction.pointsAwarded === 3} class:pts-0={userPrediction.pointsAwarded === 0}>
                                                 +{userPrediction.pointsAwarded} pts
                                             </div>
