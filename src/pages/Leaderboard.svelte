@@ -1,6 +1,8 @@
 <script>
-    import { collection, query, orderBy, onSnapshot, doc } from 'firebase/firestore';
+    import { collection, query, onSnapshot, doc } from 'firebase/firestore';
     import { db } from '../lib/firebase.js';
+    import { userStore } from '../lib/stores.svelte.js';
+    import { push } from 'svelte-spa-router';
     import ErrorMessage from '../components/ErrorMessage.svelte';
 
     let leaderboard = $state([]);
@@ -20,6 +22,11 @@
     });
 
     $effect(() => {
+        if (!userStore.user) {
+            push('/');
+            return;
+        }
+
         const unsubscribeStatus = onSnapshot(doc(db, 'system', 'status'), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -50,6 +57,8 @@
     });
 
     $effect(() => {
+        if (!userStore.user) return;
+
         const q = query(collection(db, 'users'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const rawData = [];
