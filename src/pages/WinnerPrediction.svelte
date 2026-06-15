@@ -170,38 +170,50 @@
     }
     .save-bar {
         position: fixed;
-        bottom: clamp(1rem, 3vw, 2rem);
-        left: clamp(0.5rem, 2vw, 1rem);
-        right: clamp(0.5rem, 2vw, 1rem);
-        background: rgba(15, 23, 42, 0.9);
+        bottom: 1.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% - 2rem);
+        max-width: 600px;
+        box-sizing: border-box;
+        background: rgba(15, 23, 42, 0.95);
         backdrop-filter: blur(10px);
         border: 1px solid var(--color-accent);
-        padding: clamp(0.75rem, 2vw, 1rem) clamp(1rem, 3vw, 2rem);
+        padding: 0.75rem 1.5rem;
         border-radius: 50px;
         display: flex;
         align-items: center;
-        gap: clamp(1rem, 3vw, 2rem);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        flex-wrap: wrap;
-        justify-content: center;
-        max-width: calc(100vw - 2rem);
-        left: 50%;
-        transform: translateX(-50%);
+        justify-content: space-between;
+        gap: 1rem;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
     }
     .pick-text {
         font-size: clamp(0.85rem, 2vw, 1rem);
         white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+        min-width: 0;
     }
     .save-bar button {
         background: var(--color-accent);
         color: var(--color-bg);
         border: none;
-        padding: clamp(0.4rem, 1vw, 0.5rem) clamp(1rem, 3vw, 1.5rem);
+        padding: 0.5rem 1.5rem;
         border-radius: 20px;
         font-weight: bold;
         cursor: pointer;
-        font-size: clamp(0.8rem, 2vw, 0.95rem);
+        font-size: 0.9rem;
         white-space: nowrap;
+        flex-shrink: 0;
+        transition: opacity 0.2s;
+    }
+    .save-bar button:hover:not(:disabled) {
+        opacity: 0.85;
+    }
+    .save-bar button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
     }
     .msg {
         text-align: center;
@@ -212,31 +224,28 @@
     .msg.success { color: var(--color-success); }
     .msg.error { color: var(--color-danger); }
 
-    @media (max-width: 768px) {
-        .save-bar {
-            position: fixed;
-            bottom: clamp(0.75rem, 2vw, 1.5rem);
-            left: 0.5rem;
-            right: 0.5rem;
-            width: auto;
-            gap: 1rem;
-        }
-        .pick-text {
-            flex: 0 1 100%;
-            text-align: center;
-        }
-    }
-
     @media (max-width: 480px) {
         .teams-grid {
             grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
         }
         .save-bar {
+            bottom: 1rem;
+            border-radius: 16px;
             flex-direction: column;
-            gap: 0.75rem;
+            align-items: stretch;
+            padding: 1rem;
+            gap: 0.6rem;
         }
         .pick-text {
-            font-size: 0.85rem;
+            white-space: normal;
+            text-align: center;
+            flex: none;
+        }
+        .save-bar button {
+            width: 100%;
+            padding: 0.65rem 1rem;
+            border-radius: 10px;
+            font-size: 1rem;
         }
     }
 </style>
