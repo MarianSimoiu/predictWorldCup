@@ -5,7 +5,7 @@
     import { db } from '../lib/firebase.js';
     import ErrorMessage from '../components/ErrorMessage.svelte';
 
-    let userStats = $state({ totalPoints: 0, correctPredictions: 0, rank: '-' });
+    let userStats = $state({ totalPoints: 0, correctPredictions: 0, correctGoals: 0, winnerPrediction: null, rank: '-' });
     let error = $state(null);
 
     // Tab state: 'upcoming' | 'predictions'
@@ -116,6 +116,8 @@
                 const data = docSnap.data();
                 userStats.totalPoints = data.totalPoints || 0;
                 userStats.correctPredictions = data.correctPredictions || 0;
+                userStats.correctGoals = data.correctGoals || 0;
+                userStats.winnerPrediction = data.winnerPrediction || null;
             }
             error = null;
         }, (err) => {
@@ -173,6 +175,16 @@
         <div class="stat-card">
             <h3>Exact Results</h3>
             <div class="value">{userStats.correctPredictions}</div>
+        </div>
+        <div class="stat-card">
+            <h3>Goals Predictions</h3>
+            <div class="value">{userStats.correctGoals}</div>
+        </div>
+        <div class="stat-card">
+            <h3>Champion Pick</h3>
+            <div class="value {userStats.winnerPrediction ? 'value-team' : 'value-empty'}">
+                {userStats.winnerPrediction ?? '—'}
+            </div>
         </div>
     </div>
 
@@ -450,6 +462,17 @@
         color: var(--color-primary);
         margin-top: 0.5rem;
         text-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+    }
+    .value.value-team {
+        font-size: clamp(1rem, 3vw, 1.4rem);
+        color: var(--color-accent);
+        text-shadow: none;
+        line-height: 1.3;
+        word-break: break-word;
+    }
+    .value.value-empty {
+        color: #555;
+        text-shadow: none;
     }
 
     /* Tabbed Navigation */
