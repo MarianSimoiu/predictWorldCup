@@ -1,7 +1,7 @@
 <script>
     import { userStore } from '../lib/stores.svelte.js';
     import { matchStore, predictionStore } from '../lib/stores.svelte.js';
-    import { doc, onSnapshot, query, collection, orderBy } from 'firebase/firestore';
+    import { doc, onSnapshot, query, collection } from 'firebase/firestore';
     import { db } from '../lib/firebase.js';
     import ErrorMessage from '../components/ErrorMessage.svelte';
 
@@ -123,19 +123,23 @@
             error = err.message || String(err);
         });
 
-        // Listen to leaderboard to find rank
-        const q = query(collection(db, 'users'), orderBy('totalPoints', 'desc'));
+        // Listen to all users and rank using the same criteria as the Leaderboard:
+        // Points DESC → Exact Results DESC → Goals Predictions DESC
+        const q = query(collection(db, 'users'));
         const unsubLeaderboard = onSnapshot(q, (snapshot) => {
-            let rank = 1;
-            let found = false;
-            snapshot.forEach((doc) => {
-                if (doc.id === userStore.user.uid) {
-                    userStats.rank = rank;
-                    found = true;
-                }
-                rank++;
+            const users = [];
+            snapshot.forEach((doc) => users.push({ id: doc.id, ...doc.data() }));
+
+            users.sort((a, b) => {
+                const ptsDiff = (b.totalPoints || 0) - (a.totalPoints || 0);
+                if (ptsDiff !== 0) return ptsDiff;
+                const exactDiff = (b.correctPredictions || 0) - (a.correctPredictions || 0);
+                if (exactDiff !== 0) return exactDiff;
+                return (b.correctGoals || 0) - (a.correctGoals || 0);
             });
-            if (!found) userStats.rank = '-';
+
+            const idx = users.findIndex(u => u.id === userStore.user.uid);
+            userStats.rank = idx >= 0 ? idx + 1 : '-';
             error = null;
         }, (err) => {
             console.error("Dashboard leaderboard rank error:", err);
