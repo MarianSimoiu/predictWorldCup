@@ -3,6 +3,7 @@
     import { saveWinnerPrediction } from '../lib/db.js';
     import { doc, getDoc } from 'firebase/firestore';
     import { db } from '../lib/firebase.js';
+    import { CHAMPION_LOCK_DEADLINE } from '../lib/config.js';
 
     let savedPrediction = $state(null);  // what is persisted in Firestore
     let selectedTeam = $state(null);      // what the user has highlighted in the grid
@@ -20,11 +21,23 @@
             .sort((a, b) => a.name.localeCompare(b.name));
     });
 
-    let isLocked = $derived.by(() => {
-        const groupMatches = matchStore.matches.filter(m => m.stage === 'GROUP_STAGE');
-        if (groupMatches.length === 0) return false;
-        const lastMatch = groupMatches.reduce((latest, cur) => cur.kickoff > latest.kickoff ? cur : latest, groupMatches[0]);
-        return new Date() >= lastMatch.kickoff;
+    let now = $state(new Date());
+    $effect(() => {
+        const t = setInterval(() => { now = new Date(); }, 1000);
+        return () => clearInterval(t);
+    });
+
+    let isLocked = $derived(now >= CHAMPION_LOCK_DEADLINE);
+
+    let countdown = $derived.by(() => {
+        const diff = CHAMPION_LOCK_DEADLINE - now;
+        if (diff <= 0) return null;
+        return {
+            days:    Math.floor(diff / 86400000),
+            hours:   Math.floor((diff % 86400000) / 3600000),
+            minutes: Math.floor((diff % 3600000)  / 60000),
+            seconds: Math.floor((diff % 60000)    / 1000)
+        };
     });
 
     // Derived bar state
@@ -59,6 +72,19 @@
 <div class="winner-page">
     <h1>Predict the Champion</h1>
     <p class="subtitle">Pick who will lift the trophy! Worth 10 bonus points.</p>
+
+    {#if countdown}
+        <div class="deadline-notice">
+            <span class="deadline-label">Picks lock in</span>
+            <span class="deadline-countdown">
+                {#if countdown.days > 0}<span class="cd-unit">{countdown.days}<em>d</em></span>{/if}
+                <span class="cd-unit">{countdown.hours}<em>h</em></span>
+                <span class="cd-unit">{String(countdown.minutes).padStart(2,'0')}<em>m</em></span>
+                <span class="cd-unit">{String(countdown.seconds).padStart(2,'0')}<em>s</em></span>
+            </span>
+            <span class="deadline-date">Wed Jun 18 · 08:00 UTC+2</span>
+        </div>
+    {/if}
 
     {#if isLocked}
         <div class="locked-banner">
@@ -165,6 +191,48 @@
         color: #aaa;
         margin-bottom: clamp(1rem, 3vw, 2rem);
         font-size: clamp(0.9rem, 2vw, 1rem);
+    }
+
+    /* Deadline notice */
+    .deadline-notice {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0.6rem 1rem;
+        background: rgba(251, 191, 36, 0.08);
+        border: 1px solid rgba(251, 191, 36, 0.25);
+        border-radius: 12px;
+        padding: 0.65rem 1.25rem;
+        margin-bottom: clamp(1rem, 3vw, 1.5rem);
+    }
+    .deadline-label {
+        font-size: 0.8rem;
+        color: #aaa;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+    .deadline-countdown {
+        display: flex;
+        gap: 0.35rem;
+        align-items: baseline;
+    }
+    .cd-unit {
+        font-size: clamp(1rem, 3vw, 1.2rem);
+        font-weight: 700;
+        color: var(--color-accent);
+        font-variant-numeric: tabular-nums;
+    }
+    .cd-unit em {
+        font-style: normal;
+        font-size: 0.65em;
+        font-weight: 400;
+        color: #888;
+        margin-left: 1px;
+    }
+    .deadline-date {
+        font-size: 0.75rem;
+        color: #666;
     }
 
     /* Locked state */

@@ -4,6 +4,7 @@
     import { doc, onSnapshot, query, collection } from 'firebase/firestore';
     import { db } from '../lib/firebase.js';
     import ErrorMessage from '../components/ErrorMessage.svelte';
+    import { CHAMPION_LOCK_DEADLINE } from '../lib/config.js';
 
     let userStats = $state({ totalPoints: 0, correctPredictions: 0, correctGoals: 0, winnerPrediction: null, rank: '-' });
     let error = $state(null);
@@ -11,11 +12,22 @@
     // Tab state: 'upcoming' | 'predictions'
     let activeTab = $state('upcoming');
 
-    // Reactive clock so lock status updates without a full page reload
+    // Reactive clock — 1 s tick drives both lock-status labels and the champion countdown
     let now = $state(new Date());
     $effect(() => {
-        const interval = setInterval(() => { now = new Date(); }, 30000);
+        const interval = setInterval(() => { now = new Date(); }, 1000);
         return () => clearInterval(interval);
+    });
+
+    let championCountdown = $derived.by(() => {
+        const diff = CHAMPION_LOCK_DEADLINE - now;
+        if (diff <= 0) return null;
+        return {
+            days:    Math.floor(diff / 86400000),
+            hours:   Math.floor((diff % 86400000) / 3600000),
+            minutes: Math.floor((diff % 3600000)  / 60000),
+            seconds: Math.floor((diff % 60000)    / 1000)
+        };
     });
 
     // Filter and sort states for predictions
@@ -185,6 +197,50 @@
             <div class="value {userStats.winnerPrediction ? 'value-team' : 'value-empty'}">
                 {userStats.winnerPrediction ?? '—'}
             </div>
+        </div>
+    </div>
+
+    <!-- Champion pick countdown -->
+    <div class="champion-countdown {championCountdown ? '' : 'locked'}">
+        <div class="cd-left">
+            <span class="cd-trophy">🏆</span>
+            <div class="cd-text">
+                <span class="cd-title">Champion Pick</span>
+                {#if championCountdown}
+                    <span class="cd-sub">Locks Wed Jun 18 · 08:00 UTC+2</span>
+                {:else}
+                    <span class="cd-sub locked-sub">Picks are now locked</span>
+                {/if}
+            </div>
+        </div>
+        <div class="cd-right">
+            {#if championCountdown}
+                <div class="cd-units">
+                    {#if championCountdown.days > 0}
+                        <div class="cd-block">
+                            <span class="cd-num">{championCountdown.days}</span>
+                            <span class="cd-lbl">days</span>
+                        </div>
+                        <span class="cd-sep">:</span>
+                    {/if}
+                    <div class="cd-block">
+                        <span class="cd-num">{String(championCountdown.hours).padStart(2,'0')}</span>
+                        <span class="cd-lbl">hrs</span>
+                    </div>
+                    <span class="cd-sep">:</span>
+                    <div class="cd-block">
+                        <span class="cd-num">{String(championCountdown.minutes).padStart(2,'0')}</span>
+                        <span class="cd-lbl">min</span>
+                    </div>
+                    <span class="cd-sep">:</span>
+                    <div class="cd-block">
+                        <span class="cd-num">{String(championCountdown.seconds).padStart(2,'0')}</span>
+                        <span class="cd-lbl">sec</span>
+                    </div>
+                </div>
+            {:else}
+                <a href="#/winner" class="cd-locked-link">View your pick →</a>
+            {/if}
         </div>
     </div>
 
@@ -473,6 +529,102 @@
     .value.value-empty {
         color: #555;
         text-shadow: none;
+    }
+
+    /* Champion countdown widget */
+    .champion-countdown {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        background: rgba(251, 191, 36, 0.07);
+        border: 1px solid rgba(251, 191, 36, 0.25);
+        border-radius: 12px;
+        padding: 0.9rem 1.25rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+    .champion-countdown.locked {
+        background: rgba(255, 255, 255, 0.03);
+        border-color: rgba(255, 255, 255, 0.08);
+    }
+    .cd-left {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .cd-trophy { font-size: 1.5rem; flex-shrink: 0; }
+    .cd-text {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+    }
+    .cd-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--color-accent);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+    .cd-sub {
+        font-size: 0.75rem;
+        color: #888;
+    }
+    .cd-sub.locked-sub { color: #666; font-style: italic; }
+
+    .cd-right { display: flex; align-items: center; }
+    .cd-units {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    .cd-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 2.5rem;
+    }
+    .cd-num {
+        font-size: clamp(1.3rem, 4vw, 1.7rem);
+        font-weight: 800;
+        color: var(--color-accent);
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+    }
+    .cd-lbl {
+        font-size: 0.6rem;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .cd-sep {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #444;
+        padding-bottom: 0.9rem;
+        flex-shrink: 0;
+    }
+    .cd-locked-link {
+        color: #888;
+        font-size: 0.85rem;
+        text-decoration: none;
+        padding: 0.35rem 0.75rem;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+    .cd-locked-link:hover {
+        color: #fff;
+        border-color: rgba(255,255,255,0.2);
+    }
+
+    @media (max-width: 480px) {
+        .champion-countdown {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+        .cd-right { width: 100%; justify-content: center; }
     }
 
     /* Tabbed Navigation */
