@@ -172,6 +172,30 @@
                         </div>
                     {/if}
 
+                    <!-- Community stats (populated after admin runs recalculate) -->
+                    {#if isFinished && match.communityStats?.totalPredictions > 0}
+                        {@const cs = match.communityStats}
+                        {@const pct = Math.round((cs.correctResults / cs.totalPredictions) * 100)}
+                        <div class="community-row">
+                            <span class="cs-icon">🌍</span>
+                            <span class="cs-item">
+                                <strong>{cs.correctResults}/{cs.totalPredictions}</strong> correct result
+                                <span class="cs-pct">({pct}%)</span>
+                            </span>
+                            {#if cs.correctGoals > 0}
+                                <span class="cs-sep">·</span>
+                                <span class="cs-item">
+                                    <strong>{cs.correctGoals}</strong> correct goals
+                                </span>
+                            {/if}
+                            <span class="cs-dist">
+                                <span class="dist-pill">🏠 {cs.resultDistribution.team1}</span>
+                                <span class="dist-pill">= {cs.resultDistribution.draw}</span>
+                                <span class="dist-pill">✈️ {cs.resultDistribution.team2}</span>
+                            </span>
+                        </div>
+                    {/if}
+
                     <!-- Action button -->
                     <div class="actions">
                         <a href="#/match/{match.id}" class="action-btn">
@@ -407,6 +431,38 @@
         border: 1px solid rgba(239,68,68,0.12);
         border-radius: 8px;
         padding: clamp(0.35rem, 1.5vw, 0.55rem) clamp(0.5rem, 2vw, 0.85rem);
+    }
+
+    /* Community stats */
+    .community-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.3rem clamp(0.4rem, 1.5vw, 0.65rem);
+        font-size: clamp(0.7rem, 1.8vw, 0.8rem);
+        color: #999;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 8px;
+        padding: clamp(0.3rem, 1vw, 0.45rem) clamp(0.5rem, 2vw, 0.75rem);
+    }
+    .cs-icon { flex-shrink: 0; }
+    .cs-item strong { color: #ccc; }
+    .cs-pct { color: #666; }
+    .cs-sep { color: #444; }
+    .cs-dist {
+        display: flex;
+        gap: 0.3rem;
+        margin-left: auto;
+        flex-shrink: 0;
+    }
+    .dist-pill {
+        background: rgba(255,255,255,0.05);
+        border-radius: 4px;
+        padding: 0.1rem 0.35rem;
+        font-size: 0.7rem;
+        color: #888;
+        white-space: nowrap;
     }
 
     /* Action button */

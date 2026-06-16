@@ -194,18 +194,21 @@ export async function recalculateAllScores() {
         }
     }
 
+    // Per-match community stats accumulated while iterating predictions
+    const matchCommunity = {};
+
     predsSnap.forEach(docSnap => {
         const p = docSnap.data();
         const match = matchesMap[p.matchId];
-        
+
         if (match && match.actualResult !== null) {
             const { points, resultCorrect, goalsCorrect } = calculatePredictionScore(p, match.actualResult, match.actualTotalGoals);
-            
+
             // Update prediction doc
             batch.update(docSnap.ref, { pointsAwarded: points, resultCorrect, goalsCorrect });
             count++;
             if (count === 400) commitBatch();
-            
+
             // Tally user score
             if (!userScores[p.userId]) {
                 userScores[p.userId] = { totalPoints: 0, correctPredictions: 0, correctGoals: 0 };
@@ -213,9 +216,34 @@ export async function recalculateAllScores() {
             userScores[p.userId].totalPoints += points;
             if (resultCorrect) userScores[p.userId].correctPredictions += 1;
             if (goalsCorrect) userScores[p.userId].correctGoals += 1;
+
+            // Tally community stats per match
+            if (!matchCommunity[p.matchId]) {
+                matchCommunity[p.matchId] = {
+                    totalPredictions: 0,
+                    correctResults: 0,
+                    correctGoals: 0,
+                    resultDistribution: { team1: 0, draw: 0, team2: 0 }
+                };
+            }
+            const ms = matchCommunity[p.matchId];
+            ms.totalPredictions++;
+            if (p.predictedResult && ms.resultDistribution[p.predictedResult] !== undefined) {
+                ms.resultDistribution[p.predictedResult]++;
+            }
+            if (resultCorrect) ms.correctResults++;
+            if (goalsCorrect) ms.correctGoals++;
         }
     });
-    
+
+    await commitBatch();
+
+    // 2b. Write community stats back onto each match document
+    for (const [matchId, stats] of Object.entries(matchCommunity)) {
+        batch.update(doc(db, 'matches', matchId), { communityStats: stats });
+        count++;
+        if (count === 400) await commitBatch();
+    }
     await commitBatch();
     
     // 3. Update user docs

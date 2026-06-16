@@ -343,6 +343,27 @@
                                     </div>
                                 {/if}
                             </div>
+
+                            {#if match.status === 'FINISHED' && match.communityStats?.totalPredictions > 0}
+                                {@const cs = match.communityStats}
+                                {@const pct = Math.round((cs.correctResults / cs.totalPredictions) * 100)}
+                                <div class="community-bar">
+                                    <span class="cb-icon">🌍</span>
+                                    <span class="cb-text">
+                                        <strong>{cs.correctResults}/{cs.totalPredictions}</strong> players correct result
+                                        <span class="cb-pct">({pct}%)</span>
+                                    </span>
+                                    {#if cs.correctGoals > 0}
+                                        <span class="cb-sep">·</span>
+                                        <span class="cb-text"><strong>{cs.correctGoals}</strong> correct goals</span>
+                                    {/if}
+                                    <span class="cb-dist">
+                                        <span class="dist-pill">🏠{cs.resultDistribution.team1}</span>
+                                        <span class="dist-pill">={cs.resultDistribution.draw}</span>
+                                        <span class="dist-pill">✈️{cs.resultDistribution.team2}</span>
+                                    </span>
+                                </div>
+                            {/if}
                         </div>
                     {/each}
                 </div>
@@ -1027,6 +1048,37 @@
         background: rgba(239, 68, 68, 0.1);
         color: var(--color-danger);
         border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    /* Community stats bar on finished match cards */
+    .community-bar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+        color: #888;
+        background: rgba(255,255,255,0.02);
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding: 0.5rem 1.25rem;
+        margin: 0 -1.25rem -1.25rem;
+        border-radius: 0 0 12px 12px;
+    }
+    .cb-icon { flex-shrink: 0; }
+    .cb-text strong { color: #ccc; }
+    .cb-pct { color: #666; }
+    .cb-sep { color: #444; }
+    .cb-dist {
+        display: flex;
+        gap: 0.25rem;
+        margin-left: auto;
+    }
+    .dist-pill {
+        background: rgba(255,255,255,0.05);
+        border-radius: 4px;
+        padding: 0.1rem 0.3rem;
+        font-size: 0.72rem;
+        color: #777;
     }
 
     /* Predictions List */
