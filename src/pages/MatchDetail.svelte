@@ -70,88 +70,100 @@
 
 <style>
     .match-detail {
-        padding: 2rem;
+        padding: clamp(0.75rem, 3vw, 2rem);
         max-width: 800px;
         margin: 0 auto;
+        /* Prevent any child from escaping the viewport */
+        overflow-x: hidden;
     }
     .back-link {
         color: var(--color-secondary);
         text-decoration: none;
         display: inline-block;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
+        font-size: clamp(0.85rem, 2.5vw, 1rem);
     }
     .back-link:hover { text-decoration: underline; }
-    
+
     .scoreboard {
         background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 16px;
-        padding: 2rem;
+        padding: clamp(1rem, 4vw, 2rem);
         text-align: center;
         box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        overflow: hidden;
     }
-    
+
     .meta {
         display: flex;
         justify-content: center;
-        gap: 1.5rem;
-        font-size: 0.9rem;
+        flex-wrap: wrap;
+        gap: 0.35rem 0.75rem;
+        font-size: clamp(0.65rem, 2vw, 0.9rem);
         color: #aaa;
-        margin-bottom: 2rem;
+        margin-bottom: clamp(1rem, 3vw, 2rem);
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 0.05em;
     }
     .status.live { color: var(--color-danger); font-weight: bold; animation: pulse 2s infinite; }
     .status.finished { color: var(--color-success); }
-    
+
     .teams-container {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 0.25rem;
     }
     .team {
         flex: 1;
+        min-width: 0; /* allow shrinking past content size */
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 1rem;
+        gap: clamp(0.4rem, 1.5vw, 1rem);
     }
     .big-flag {
-        width: 100px;
-        height: 70px;
+        width: clamp(48px, 14vw, 100px);
+        height: clamp(32px, 9vw, 70px);
         object-fit: cover;
-        border-radius: 8px;
+        border-radius: 6px;
         box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        flex-shrink: 0;
     }
     .team-name {
         margin: 0;
-        font-size: 1.5rem;
+        font-size: clamp(0.75rem, 3.2vw, 1.5rem);
+        line-height: 1.2;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
     }
-    
+
     .score {
-        padding: 0 2rem;
+        flex-shrink: 0;
+        padding: 0 clamp(0.4rem, 2vw, 2rem);
     }
     .vs {
-        font-size: 2rem;
+        font-size: clamp(1rem, 4vw, 2rem);
         font-weight: bold;
         color: #555;
     }
     .score-numbers {
-        font-size: 3.5rem;
+        font-size: clamp(1.6rem, 7vw, 3.5rem);
         font-weight: 800;
         color: var(--color-primary);
         text-shadow: 0 2px 10px rgba(56, 189, 248, 0.3);
+        white-space: nowrap;
     }
-    
+
     .loading, .error {
         text-align: center;
         padding: 3rem;
         font-size: 1.2rem;
     }
-    .error {
-        color: var(--color-danger);
-    }
-    
+    .error { color: var(--color-danger); }
+
     @keyframes pulse {
         0% { opacity: 1; }
         50% { opacity: 0.5; }

@@ -166,13 +166,16 @@
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 12px;
-        padding: 1.5rem;
-        margin-top: 2rem;
+        padding: clamp(0.75rem, 3vw, 1.5rem);
+        margin-top: clamp(1rem, 3vw, 2rem);
+        overflow: hidden;
     }
     .header {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         padding-bottom: 1rem;
         margin-bottom: 1.5rem;
@@ -242,18 +245,22 @@
     .options {
         display: flex;
         gap: 0.5rem;
-        flex-wrap: wrap;
     }
     .option-btn {
         flex: 1;
-        min-width: 100px;
+        min-width: 0;
         background: rgba(0, 0, 0, 0.2);
         border: 1px solid rgba(255, 255, 255, 0.2);
         color: white;
-        padding: 0.75rem;
+        padding: clamp(0.5rem, 2vw, 0.75rem) clamp(0.25rem, 1.5vw, 0.75rem);
         border-radius: 6px;
         cursor: pointer;
         transition: all 0.2s;
+        font-size: clamp(0.75rem, 2.5vw, 1rem);
+        line-height: 1.2;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
     }
     .option-btn:not(:disabled):hover {
         border-color: var(--color-primary);
@@ -360,5 +367,17 @@
     }
     .strategy-tip strong {
         color: var(--color-accent);
+    }
+
+    /* On narrow phones, stack result buttons vertically so long team
+       names (e.g. "Saudi Arabia Win") don't overflow a 3-column row */
+    @media (max-width: 420px) {
+        .section:first-of-type .options {
+            flex-direction: column;
+        }
+        .section:first-of-type .option-btn {
+            width: 100%;
+            text-align: center;
+        }
     }
 </style>
