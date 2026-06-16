@@ -140,116 +140,67 @@
             </div>
         </div>
 
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="rank">#</th>
-                        <th class="name">Predictor</th>
-                        <th class="score">Points</th>
-                        <th class="correct">
-                            Exact Results
-                            <span class="tooltip-icon" data-tooltip="Correct predictions of the match outcome (Win/Draw/Loss)">ℹ️</span>
-                        </th>
-                        <th class="goals-correct">
-                            Goals Predictions
-                            <span class="tooltip-icon" data-tooltip="Correct predictions of the total goals tier (0-1, 2-3, or 4+ goals)">ℹ️</span>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {#each filteredLeaderboard as user (user.id)}
-                        <tr class:top-3={user.rank <= 3}>
-                            <td class="rank">
-                                {#if user.rank === 1}🥇
-                                {:else if user.rank === 2}🥈
-                                {:else if user.rank === 3}🥉
-                                {:else}{user.rank}{/if}
-                            </td>
-                            <td class="name">
-                                {user.displayName || user.email?.split('@')[0] || `User_${user.id.substring(0, 5)}`}
-                                {#if user.hasPaid}
-                                    <span class="paid-badge" title="Paid participation tax">💰</span>
-                                {/if}
-                            </td>
-                            <td class="score">{user.totalPoints || 0}</td>
-                            <td class="correct">{user.correctPredictions || 0}</td>
-                            <td class="goals-correct">{user.correctGoals || 0}</td>
-                        </tr>
-                    {/each}
-                    {#if filteredLeaderboard.length === 0}
-                        <tr>
-                            <td colspan="5" class="empty-msg">No paid participants found yet.</td>
-                        </tr>
-                    {/if}
-                </tbody>
-            </table>
+        <div class="lb-container">
+            <!-- Header -->
+            <div class="lb-row lb-header">
+                <span class="col-rank">#</span>
+                <span class="col-name">Predictor</span>
+                <span class="col-pts">Pts</span>
+                <span class="col-results desktop-only">
+                    Results
+                    <span class="tip" data-tip="Correct match outcome predictions (Win/Draw/Loss)">ℹ️</span>
+                </span>
+                <span class="col-goals desktop-only">
+                    Goals
+                    <span class="tip" data-tip="Correct total goals tier predictions (0-1 / 2-3 / 4+)">ℹ️</span>
+                </span>
+            </div>
+
+            {#each filteredLeaderboard as user (user.id)}
+                <div class="lb-row" class:top-3={user.rank <= 3}>
+                    <div class="col-rank">
+                        {#if user.rank === 1}🥇
+                        {:else if user.rank === 2}🥈
+                        {:else if user.rank === 3}🥉
+                        {:else}<span class="rank-num">{user.rank}</span>{/if}
+                    </div>
+                    <div class="col-name">
+                        <span class="username">
+                            {user.displayName || user.email?.split('@')[0] || `User_${user.id.substring(0, 5)}`}
+                        </span>
+                        {#if user.hasPaid}<span class="paid-badge" title="Paid">💰</span>{/if}
+                        <!-- Mobile sub-line -->
+                        <span class="mobile-stats">
+                            ✓ {user.correctPredictions || 0} results · ⚽ {user.correctGoals || 0} goals
+                        </span>
+                    </div>
+                    <div class="col-pts">{user.totalPoints || 0}</div>
+                    <div class="col-results desktop-only">{user.correctPredictions || 0}</div>
+                    <div class="col-goals desktop-only">{user.correctGoals || 0}</div>
+                </div>
+            {/each}
+
+            {#if filteredLeaderboard.length === 0}
+                <div class="empty-msg">No paid participants found yet.</div>
+            {/if}
         </div>
     {/if}
 </div>
 
 <style>
     .leaderboard-page {
-        padding: 2rem;
+        padding: clamp(0.75rem, 3vw, 2rem);
         max-width: 800px;
         margin: 0 auto;
     }
     h1 {
         text-align: center;
         color: var(--color-accent);
-        margin-bottom: 2rem;
-        font-size: 2.5rem;
-    }
-    .table-container {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        overflow: hidden;
-    }
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        text-align: left;
-    }
-    th, td {
-        padding: 1rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    th {
-        background: rgba(0, 0, 0, 0.2);
-        color: #aaa;
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 0.85rem;
-        letter-spacing: 1px;
-    }
-    tr:hover {
-        background: rgba(255, 255, 255, 0.02);
-    }
-    tr.top-3 {
-        background: linear-gradient(90deg, rgba(251, 191, 36, 0.1) 0%, transparent 100%);
-    }
-    tr.top-3 td.name {
-        font-weight: bold;
-        color: var(--color-accent);
-    }
-    .rank { width: 60px; text-align: center; font-size: 1.2rem; }
-    .score { font-size: 1.25rem; font-weight: bold; color: var(--color-primary); }
-    .correct, .goals-correct { text-align: center; color: #aaa; }
-    .name { position: relative; }
-    .paid-badge {
-        margin-left: 0.4rem;
-        font-size: 0.85em;
-        vertical-align: middle;
-        opacity: 0.85;
-    }
-    .empty-msg {
-        text-align: center;
-        color: #888;
-        font-style: italic;
-        padding: 2rem;
+        margin-bottom: clamp(1rem, 3vw, 2rem);
+        font-size: clamp(1.5rem, 5vw, 2.5rem);
     }
 
+    /* Filter bar */
     .filter-bar {
         display: flex;
         align-items: center;
@@ -282,34 +233,110 @@
         transition: background 0.2s, color 0.2s;
         font-weight: 500;
     }
-    .filter-tab:hover {
-        color: white;
-    }
+    .filter-tab:hover { color: white; }
     .filter-tab.active {
-        background: var(--color-primary, #6366f1);
+        background: var(--color-primary);
         color: white;
         font-weight: bold;
     }
 
-    .tooltip-icon {
-        cursor: help;
-        display: inline-block;
-        margin-left: 6px;
-        position: relative;
-        font-size: 0.9em;
+    /* Leaderboard grid */
+    .lb-container {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 12px;
+        overflow: hidden;
     }
 
-    .tooltip-icon::after {
-        content: attr(data-tooltip);
+    /* Each row is a 5-column grid on desktop */
+    .lb-row {
+        display: grid;
+        grid-template-columns: 48px 1fr 60px 64px 64px;
+        align-items: center;
+        padding: clamp(0.6rem, 2vw, 0.9rem) clamp(0.75rem, 2.5vw, 1rem);
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        transition: background 0.15s;
+    }
+    .lb-row:last-child { border-bottom: none; }
+    .lb-row:not(.lb-header):hover { background: rgba(255,255,255,0.03); }
+
+    .lb-header {
+        background: rgba(0,0,0,0.2);
+        font-size: clamp(0.65rem, 1.8vw, 0.78rem);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #aaa;
+    }
+    .lb-row.top-3 {
+        background: linear-gradient(90deg, rgba(251,191,36,0.08) 0%, transparent 60%);
+    }
+
+    /* Columns */
+    .col-rank {
+        text-align: center;
+        font-size: clamp(1rem, 3.5vw, 1.2rem);
+    }
+    .rank-num {
+        font-size: clamp(0.8rem, 2.5vw, 1rem);
+        color: #888;
+    }
+    .col-name {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        min-width: 0;
+        padding-right: 0.5rem;
+    }
+    .username {
+        font-size: clamp(0.82rem, 2.5vw, 0.95rem);
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .top-3 .username { color: var(--color-accent); }
+    .paid-badge {
+        margin-left: 0.3rem;
+        font-size: 0.8em;
+        opacity: 0.85;
+    }
+    .mobile-stats {
+        display: none; /* shown only on mobile */
+        font-size: clamp(0.65rem, 1.8vw, 0.72rem);
+        color: #666;
+    }
+    .col-pts {
+        font-size: clamp(1rem, 3vw, 1.2rem);
+        font-weight: 800;
+        color: var(--color-primary);
+        text-align: center;
+    }
+    .col-results, .col-goals {
+        text-align: center;
+        font-size: clamp(0.85rem, 2.5vw, 1rem);
+        color: #aaa;
+    }
+
+    /* Tooltip on header */
+    .tip {
+        cursor: help;
+        display: inline-block;
+        margin-left: 3px;
+        position: relative;
+        font-size: 0.8em;
+    }
+    .tip::after {
+        content: attr(data-tip);
         position: absolute;
         bottom: 150%;
         left: 50%;
         transform: translateX(-50%);
-        background-color: #222;
+        background: #222;
         color: #fff;
-        padding: 8px 12px;
+        padding: 6px 10px;
         border-radius: 6px;
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         white-space: nowrap;
         opacity: 0;
         visibility: hidden;
@@ -322,48 +349,25 @@
         text-transform: none;
         letter-spacing: normal;
     }
+    .tip:hover::after { opacity: 1; visibility: visible; }
 
-    .tooltip-icon:hover::after {
-        opacity: 1;
-        visibility: visible;
+    .empty-msg {
+        text-align: center;
+        color: #888;
+        font-style: italic;
+        padding: 2rem;
     }
 
-    @media (max-width: 640px) {
-        .leaderboard-page {
-            padding: 1rem;
-        }
-        .table-container {
-            overflow-x: auto;
-            border-radius: 8px;
-        }
-        table {
-            min-width: 500px; /* Forces scrolling instead of squishing text unreadably */
-        }
-        th, td {
-            padding: 0.75rem 0.5rem;
-        }
-        th {
-            font-size: 0.75rem;
-        }
-        .rank {
-            width: 40px;
-            font-size: 1rem;
-        }
-        .score {
-            font-size: 1.1rem;
-        }
-    }
-
+    /* Sync banner */
     .sync-banner {
         display: flex;
         justify-content: center;
         gap: clamp(1rem, 4vw, 2rem);
-        margin-bottom: 2rem;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        margin-bottom: clamp(1rem, 3vw, 2rem);
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
         padding: 0.6rem 1.2rem;
         border-radius: 50px;
-        backdrop-filter: blur(10px);
         width: fit-content;
         margin-left: auto;
         margin-right: auto;
@@ -373,35 +377,30 @@
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        font-size: 0.85rem;
+        font-size: clamp(0.75rem, 2vw, 0.85rem);
     }
-    .sync-banner-item .dot {
-        font-size: 0.75rem;
-    }
-    .sync-banner-item .dot.pulse-success {
-        color: var(--color-success, #10b981);
-        animation: pulse 2s infinite;
-    }
-    .sync-banner-item .dot.pulse-accent {
-        color: var(--color-accent, #fbbf24);
-        animation: pulse 1s infinite;
-    }
-    .sync-banner-item .label {
-        color: #888;
-    }
-    .sync-banner-item .value {
-        color: white;
-        font-weight: 600;
-    }
+    .sync-banner-item .dot { font-size: 0.75rem; }
+    .dot.pulse-success { color: var(--color-success); animation: pulse 2s infinite; }
+    .dot.pulse-accent  { color: var(--color-accent);  animation: pulse 1s infinite; }
+    .sync-banner-item .label { color: #888; }
+    .sync-banner-item .value { color: white; font-weight: 600; }
     .sync-banner-item .value.countdown {
         font-family: monospace;
-        font-size: 0.9rem;
-        color: var(--color-accent, #fbbf24);
+        color: var(--color-accent);
     }
-    
+
+    /* Mobile: collapse to 3 columns, show sub-line stats */
+    @media (max-width: 500px) {
+        .lb-row {
+            grid-template-columns: 36px 1fr 48px;
+        }
+        .desktop-only { display: none; }
+        .mobile-stats { display: block; }
+        .col-pts { font-size: clamp(0.95rem, 4vw, 1.1rem); }
+    }
+
     @keyframes pulse {
-        0% { opacity: 0.5; }
+        0%, 100% { opacity: 0.5; }
         50% { opacity: 1; }
-        100% { opacity: 0.5; }
     }
 </style>
