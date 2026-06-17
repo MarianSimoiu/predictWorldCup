@@ -8,18 +8,11 @@
     let leaderboard = $state([]);
     let loading = $state(true);
     let error = $state(null);
-    let paidFilter = $state('all'); // 'all' | 'paid'
-    
+
     let lastSyncTime = $state(null);
     let timeRemainingStr = $state('');
 
-    let filteredLeaderboard = $derived.by(() => {
-        const subset = paidFilter === 'paid'
-            ? leaderboard.filter(u => u.hasPaid === true)
-            : leaderboard;
-        // Re-assign sequential ranks within the filtered subset
-        return subset.map((user, i) => ({ ...user, rank: i + 1 }));
-    });
+    let filteredLeaderboard = $derived(leaderboard.map((user, i) => ({ ...user, rank: i + 1 })));
 
     $effect(() => {
         if (!userStore.user) {
@@ -126,20 +119,6 @@
     {:else if loading}
         <div class="loading">Loading rankings...</div>
     {:else}
-        <div class="filter-bar">
-            <span class="filter-label">Show:</span>
-            <div class="filter-tabs">
-                <button
-                    class="filter-tab {paidFilter === 'all' ? 'active' : ''}"
-                    onclick={() => paidFilter = 'all'}
-                >🌍 All Predictors</button>
-                <button
-                    class="filter-tab {paidFilter === 'paid' ? 'active' : ''}"
-                    onclick={() => paidFilter = 'paid'}
-                >💰 Paid Only</button>
-            </div>
-        </div>
-
         <div class="lb-container">
             <!-- Header -->
             <div class="lb-row lb-header">
@@ -168,7 +147,6 @@
                         <span class="username">
                             {user.displayName || user.email?.split('@')[0] || `User_${user.id.substring(0, 5)}`}
                         </span>
-                        {#if user.hasPaid}<span class="paid-badge" title="Paid">💰</span>{/if}
                         <!-- Mobile sub-line -->
                         <span class="mobile-stats">
                             ✓ {user.correctPredictions || 0} results · ⚽ {user.correctGoals || 0} goals
@@ -181,7 +159,7 @@
             {/each}
 
             {#if filteredLeaderboard.length === 0}
-                <div class="empty-msg">No paid participants found yet.</div>
+                <div class="empty-msg">No participants found yet.</div>
             {/if}
         </div>
     {/if}
@@ -198,46 +176,6 @@
         color: var(--color-accent);
         margin-bottom: clamp(1rem, 3vw, 2rem);
         font-size: clamp(1.5rem, 5vw, 2.5rem);
-    }
-
-    /* Filter bar */
-    .filter-bar {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        margin-bottom: 1.25rem;
-        flex-wrap: wrap;
-    }
-    .filter-label {
-        color: #888;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    .filter-tabs {
-        display: flex;
-        gap: 0.4rem;
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 50px;
-        padding: 0.25rem;
-    }
-    .filter-tab {
-        background: transparent;
-        border: none;
-        color: #aaa;
-        padding: 0.35rem 1rem;
-        border-radius: 50px;
-        font-size: 0.85rem;
-        cursor: pointer;
-        transition: background 0.2s, color 0.2s;
-        font-weight: 500;
-    }
-    .filter-tab:hover { color: white; }
-    .filter-tab.active {
-        background: var(--color-primary);
-        color: white;
-        font-weight: bold;
     }
 
     /* Leaderboard grid */
@@ -296,11 +234,6 @@
         white-space: nowrap;
     }
     .top-3 .username { color: var(--color-accent); }
-    .paid-badge {
-        margin-left: 0.3rem;
-        font-size: 0.8em;
-        opacity: 0.85;
-    }
     .mobile-stats {
         display: none; /* shown only on mobile */
         font-size: clamp(0.65rem, 1.8vw, 0.72rem);
