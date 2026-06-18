@@ -51,14 +51,34 @@ async function main() {
 
     const name = (uid) => users[uid]?.displayName || users[uid]?.email?.split('@')[0] || `User_${uid.substring(0,5)}`;
 
+    // ── Build communityStats from raw predictions (not stored on match docs yet) ──
+    const liveStats = {}; // matchId → { totalPredictions, resultDistribution }
+    predsSnap.forEach(d => {
+        const p = d.data();
+        const m = matches[p.matchId];
+        if (!m || m.status !== 'FINISHED') return;
+        if (!liveStats[p.matchId]) {
+            liveStats[p.matchId] = { totalPredictions: 0, resultDistribution: { team1: 0, draw: 0, team2: 0 } };
+        }
+        liveStats[p.matchId].totalPredictions++;
+        if (p.predictedResult) liveStats[p.matchId].resultDistribution[p.predictedResult] = (liveStats[p.matchId].resultDistribution[p.predictedResult] || 0) + 1;
+    });
+
     // ── Helper: majority pick for a match ────────────────────────────────────
     function majority(matchId) {
-        const dist = matches[matchId]?.communityStats?.resultDistribution || {};
+        const dist = liveStats[matchId]?.resultDistribution || {};
         let top = null, topCount = -1;
         for (const [k, v] of Object.entries(dist)) {
             if (v > topCount) { topCount = v; top = k; }
         }
         return top;
+    }
+
+    function matchTotal(matchId) {
+        return liveStats[matchId]?.totalPredictions || 0;
+    }
+    function matchPickCount(matchId, pick) {
+        return liveStats[matchId]?.resultDistribution?.[pick] || 0;
     }
 
     // ── Per-user aggregates ───────────────────────────────────────────────────
@@ -77,50 +97,48 @@ async function main() {
 
         for (const p of preds) {
             const m = matches[p.matchId];
-            if (!m) continue;
+            if (!m || m.status !== 'FINISHED') continue;
 
-            if (p.predictedGoalsTier == null) goalsOnAll = false;
+            // result / goals / tier tallies (finished games only)
+            if (p.predictedResult === 'draw') drawCount++;
+            else if (p.predictedResult === 'team1') team1Count++;
+            else if (p.predictedResult === 'team2') team2Count++;
+
             if (p.predictedGoalsTier === '0-1') tier0_1++;
             else if (p.predictedGoalsTier === '2-3') tier2_3++;
             else if (p.predictedGoalsTier === '4+') tier4plus++;
             else tierBlank++;
 
-            if (p.predictedResult === 'draw') drawCount++;
-            else if (p.predictedResult === 'team1') team1Count++;
-            else if (p.predictedResult === 'team2') team2Count++;
+            if (p.predictedGoalsTier == null) goalsOnAll = false;
 
-            if (m.status !== 'FINISHED') continue;
+            // use pointsAwarded to detect perfect/half (resultCorrect may be null before recalc)
+            const pts = p.pointsAwarded || 0;
+            if (pts === 6) perfect6++;
+            else if (pts === 3) halfRight3++;
 
-            const cs = m.communityStats;
-            if (!cs || !cs.totalPredictions) continue;
+            // community stats computed from live predictions
+            const total = matchTotal(p.matchId);
+            if (!total) continue;
 
-            const total = cs.totalPredictions;
-            const myPickCount = cs.resultDistribution?.[p.predictedResult] || 0;
-            const popScore = myPickCount / total;
-            popularitySum += popScore;
+            const myPickCount = matchPickCount(p.matchId, p.predictedResult);
+            popularitySum += myPickCount / total;
             popularityCount++;
 
             const maj = majority(p.matchId);
             const withMaj = p.predictedResult === maj;
             if (withMaj) {
                 timesWithMajority++;
-                if (p.resultCorrect === false) timesWithMajorityWrong++;
+                if (pts === 0) timesWithMajorityWrong++;
             } else {
                 timesAgainstMajority++;
-                if (p.resultCorrect === true)  timesAgainstMajorityCorrect++;
-                if (p.resultCorrect === false) timesAgainstMajorityWrong++;
+                if (pts > 0) timesAgainstMajorityCorrect++;
+                else         timesAgainstMajorityWrong++;
             }
-
-            if (p.resultCorrect === true && p.goalsCorrect === true) perfect6++;
-            else if (
-                (p.resultCorrect === true && p.goalsCorrect === false) ||
-                (p.resultCorrect === false && p.goalsCorrect === true)
-            ) halfRight3++;
         }
 
         stats[uid] = {
             name: name(uid),
-            totalPreds: preds.length,
+            totalPreds: finished.length,
             finishedPreds: finished.length,
             avgPopularity: popularityCount > 0 ? popularitySum / popularityCount : 1,
             timesWithMajority,
