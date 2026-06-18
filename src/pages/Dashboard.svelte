@@ -4,7 +4,7 @@
     import { doc, onSnapshot, query, collection } from 'firebase/firestore';
     import { db } from '../lib/firebase.js';
     import ErrorMessage from '../components/ErrorMessage.svelte';
-    import { CHAMPION_LOCK_DEADLINE } from '../lib/config.js';
+    import { CHAMPION_LOCK_DEADLINE, CHAMPION_REOPEN_START, CHAMPION_REOPEN_UNTIL } from '../lib/config.js';
 
     let userStats = $state({ totalPoints: 0, correctPredictions: 0, correctGoals: 0, winnerPrediction: null, rank: '-' });
     let error = $state(null);
@@ -19,7 +19,12 @@
         return () => clearInterval(interval);
     });
 
+    let inReopenWindow = $derived(now >= CHAMPION_REOPEN_START && now < CHAMPION_REOPEN_UNTIL);
     let championCountdown = $derived.by(() => {
+        if (inReopenWindow) {
+            const diff = CHAMPION_REOPEN_UNTIL - now;
+            return { reopen: true, hours: Math.floor(diff / 3600000), minutes: Math.floor((diff % 3600000) / 60000), seconds: Math.floor((diff % 60000) / 1000) };
+        }
         const diff = CHAMPION_LOCK_DEADLINE - now;
         if (diff <= 0) return null;
         return {
@@ -201,13 +206,13 @@
     </div>
 
     <!-- Champion pick countdown -->
-    <div class="champion-countdown {championCountdown ? '' : 'locked'}">
+    <div class="champion-countdown {championCountdown ? (championCountdown.reopen ? 'reopen' : '') : 'locked'}">
         <div class="cd-left">
             <span class="cd-trophy">🏆</span>
             <div class="cd-text">
                 <span class="cd-title">Champion Pick</span>
                 {#if championCountdown}
-                    <span class="cd-sub">Locks Wed Jun 18 · 08:00 UTC+2</span>
+                    <span class="cd-sub">{championCountdown.reopen ? '⚡ Window closes soon — update your pick!' : 'Locks Wed Jun 18 · 08:00 UTC+2'}</span>
                 {:else}
                     <span class="cd-sub locked-sub">Picks are now locked</span>
                 {/if}
@@ -216,7 +221,7 @@
         <div class="cd-right">
             {#if championCountdown}
                 <div class="cd-units">
-                    {#if championCountdown.days > 0}
+                    {#if !championCountdown.reopen && championCountdown.days > 0}
                         <div class="cd-block">
                             <span class="cd-num">{championCountdown.days}</span>
                             <span class="cd-lbl">days</span>
@@ -568,6 +573,15 @@
     .champion-countdown.locked {
         background: rgba(255, 255, 255, 0.03);
         border-color: rgba(255, 255, 255, 0.08);
+    }
+    .champion-countdown.reopen {
+        background: rgba(245, 158, 11, 0.08);
+        border-color: rgba(245, 158, 11, 0.3);
+        animation: pulse-border 2s infinite;
+    }
+    @keyframes pulse-border {
+        0%, 100% { border-color: rgba(245, 158, 11, 0.3); }
+        50%       { border-color: rgba(245, 158, 11, 0.7); }
     }
     .cd-left {
         display: flex;

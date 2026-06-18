@@ -3,7 +3,7 @@
     import { saveWinnerPrediction } from '../lib/db.js';
     import { doc, getDoc } from 'firebase/firestore';
     import { db } from '../lib/firebase.js';
-    import { CHAMPION_LOCK_DEADLINE } from '../lib/config.js';
+    import { CHAMPION_LOCK_DEADLINE, CHAMPION_REOPEN_START, CHAMPION_REOPEN_UNTIL } from '../lib/config.js';
 
     let savedPrediction = $state(null);  // what is persisted in Firestore
     let selectedTeam = $state(null);      // what the user has highlighted in the grid
@@ -27,9 +27,14 @@
         return () => clearInterval(t);
     });
 
-    let isLocked = $derived(now >= CHAMPION_LOCK_DEADLINE);
+    let inReopenWindow = $derived(now >= CHAMPION_REOPEN_START && now < CHAMPION_REOPEN_UNTIL);
+    let isLocked = $derived(now >= CHAMPION_LOCK_DEADLINE && !inReopenWindow);
 
     let countdown = $derived.by(() => {
+        if (inReopenWindow) {
+            const diff = CHAMPION_REOPEN_UNTIL - now;
+            return { reopen: true, hours: Math.floor(diff / 3600000), minutes: Math.floor((diff % 3600000) / 60000), seconds: Math.floor((diff % 60000) / 1000) };
+        }
         const diff = CHAMPION_LOCK_DEADLINE - now;
         if (diff <= 0) return null;
         return {
@@ -74,15 +79,15 @@
     <p class="subtitle">Pick who will lift the trophy! Worth 10 bonus points.</p>
 
     {#if countdown}
-        <div class="deadline-notice">
-            <span class="deadline-label">Picks lock in</span>
+        <div class="deadline-notice {countdown.reopen ? 'reopen' : ''}">
+            <span class="deadline-label">{countdown.reopen ? '⚡ Reopen window closes in' : 'Picks lock in'}</span>
             <span class="deadline-countdown">
-                {#if countdown.days > 0}<span class="cd-unit">{countdown.days}<em>d</em></span>{/if}
+                {#if !countdown.reopen && countdown.days > 0}<span class="cd-unit">{countdown.days}<em>d</em></span>{/if}
                 <span class="cd-unit">{countdown.hours}<em>h</em></span>
                 <span class="cd-unit">{String(countdown.minutes).padStart(2,'0')}<em>m</em></span>
                 <span class="cd-unit">{String(countdown.seconds).padStart(2,'0')}<em>s</em></span>
             </span>
-            <span class="deadline-date">Wed Jun 18 · 08:00 UTC+2</span>
+            {#if !countdown.reopen}<span class="deadline-date">Wed Jun 18 · 08:00 UTC+2</span>{/if}
         </div>
     {/if}
 
