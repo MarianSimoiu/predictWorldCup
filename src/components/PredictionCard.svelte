@@ -54,7 +54,10 @@
     }
 </script>
 
-<div class="prediction-card">
+<div class="prediction-card" class:double-pts={match?.doublePoints}>
+    {#if match?.doublePoints}
+        <div class="double-pts-banner">⚡ Double Points Match — up to 12 pts</div>
+    {/if}
     <div class="header">
         <h3>Your Prediction</h3>
         {#if teamsPlaceholder}
@@ -139,18 +142,18 @@
         {/if}
 
         <div class="scoring-guide">
-            <h5>💡 How Scoring Works</h5>
+            <h5>💡 How Scoring Works{match?.doublePoints ? ' · ⚡ Double Points' : ''}</h5>
             <ul>
                 <li>
-                    <span class="points-badge">+6 pts</span> 
+                    <span class="points-badge">{match?.doublePoints ? '+12' : '+6'} pts</span>
                     <strong>Perfect Combo:</strong> Correct Match Result AND Correct Total Goals Tier.
                 </li>
                 <li>
-                    <span class="points-badge">+3 pts</span> 
+                    <span class="points-badge">{match?.doublePoints ? '+6' : '+3'} pts</span>
                     <strong>Partial Match:</strong> Correct Match Result OR Correct Total Goals Tier.
                 </li>
                 <li>
-                    <span class="points-badge">0 pts</span> 
+                    <span class="points-badge">0 pts</span>
                     <strong>Incorrect:</strong> Neither prediction matches the final outcome.
                 </li>
             </ul>
@@ -166,9 +169,22 @@
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 12px;
-        padding: clamp(0.75rem, 3vw, 1.5rem);
-        margin-top: clamp(1rem, 3vw, 2rem);
         overflow: hidden;
+        margin-top: clamp(1rem, 3vw, 2rem);
+    }
+    .prediction-card.double-pts {
+        border-color: rgba(245, 158, 11, 0.4);
+        background: rgba(245, 158, 11, 0.04);
+    }
+    .double-pts-banner {
+        background: linear-gradient(90deg, rgba(245,158,11,0.18), transparent);
+        border-bottom: 1px solid rgba(245,158,11,0.25);
+        color: var(--color-accent);
+        font-size: 0.78rem;
+        font-weight: 700;
+        padding: 0.5rem clamp(0.75rem, 3vw, 1.5rem);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
     }
     .header {
         display: flex;
@@ -177,8 +193,9 @@
         flex-wrap: wrap;
         gap: 0.5rem;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        padding-bottom: 1rem;
+        padding: 0 clamp(0.75rem, 3vw, 1.5rem) 1rem;
         margin-bottom: 1.5rem;
+        margin-top: clamp(0.75rem, 3vw, 1.5rem);
     }
     h3 {
         margin: 0;
@@ -232,6 +249,9 @@
     .dimmed {
         opacity: 0.5;
         pointer-events: none;
+    }
+    .form {
+        padding: 0 clamp(0.75rem, 3vw, 1.5rem) clamp(0.75rem, 3vw, 1.5rem);
     }
 
     .section {

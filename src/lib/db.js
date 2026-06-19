@@ -202,7 +202,7 @@ export async function recalculateAllScores() {
         const match = matchesMap[p.matchId];
 
         if (match && match.actualResult !== null) {
-            const { points, resultCorrect, goalsCorrect } = calculatePredictionScore(p, match.actualResult, match.actualTotalGoals);
+            const { points, resultCorrect, goalsCorrect } = calculatePredictionScore(p, match.actualResult, match.actualTotalGoals, match.doublePoints === true);
 
             // Update prediction doc
             batch.update(docSnap.ref, { pointsAwarded: points, resultCorrect, goalsCorrect });

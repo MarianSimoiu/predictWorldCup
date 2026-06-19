@@ -102,7 +102,8 @@ try {
             const { points, resultCorrect, goalsCorrect } = calculatePredictionScore(
                 prediction,
                 match.actualResult,
-                match.actualTotalGoals
+                match.actualTotalGoals,
+                match.doublePoints === true
             );
             
             // Queue prediction update

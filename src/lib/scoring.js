@@ -1,4 +1,4 @@
-export function calculatePredictionScore(prediction, actualResult, actualTotalGoals) {
+export function calculatePredictionScore(prediction, actualResult, actualTotalGoals, doublePoints = false) {
     let points = 0;
     let resultCorrect = false;
     let goalsCorrect = null;
@@ -24,6 +24,8 @@ export function calculatePredictionScore(prediction, actualResult, actualTotalGo
     } else {
         points = 0;
     }
+
+    if (doublePoints) points *= 2;
 
     return { points, resultCorrect, goalsCorrect };
 }

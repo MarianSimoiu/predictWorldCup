@@ -281,7 +281,10 @@
                         {@const lockStatus = getLockStatus(match, now)}
                         {@const formattedTime = formatBucharestDateTime(new Date(match.kickoff))}
                         {@const userPrediction = predictionStore.predictions[match.id]}
-                        <div class="match-card" class:locked={lockStatus.status === 'locked'} class:live={lockStatus.status === 'live'} class:finished={match.status === 'FINISHED'}>
+                        <div class="match-card" class:locked={lockStatus.status === 'locked'} class:live={lockStatus.status === 'live'} class:finished={match.status === 'FINISHED'} class:double-pts={match.doublePoints}>
+                            {#if match.doublePoints}
+                                <div class="double-pts-banner">⚡ Double Points Match</div>
+                            {/if}
                             <div class="match-teams">
                                 <div class="team team-1">
                                     {#if match.team1?.crest}
@@ -341,8 +344,8 @@
                                             <span class="lock-text">Locked</span>
                                         </div>
                                         {#if userPrediction && match.status === 'FINISHED'}
-                                            <div class="points-earned-badge" class:pts-6={userPrediction.pointsAwarded === 6} class:pts-3={userPrediction.pointsAwarded === 3} class:pts-0={userPrediction.pointsAwarded === 0}>
-                                                +{userPrediction.pointsAwarded} pts
+                                            <div class="points-earned-badge" class:pts-6={userPrediction.pointsAwarded >= 6} class:pts-3={userPrediction.pointsAwarded > 0 && userPrediction.pointsAwarded < 6} class:pts-0={userPrediction.pointsAwarded === 0}>
+                                                +{userPrediction.pointsAwarded} pts{match.doublePoints ? ' ⚡' : ''}
                                             </div>
                                         {/if}
                                     </div>
@@ -411,11 +414,12 @@
                             {@const match = item.match}
                             {@const pred = item.prediction}
                             {@const formattedTime = formatBucharestDateTime(new Date(match.kickoff))}
-                            <div class="prediction-history-card" class:card-finished={match.status === 'FINISHED'} class:card-live={match.status === 'LIVE'}>
-                                
+                            <div class="prediction-history-card" class:card-finished={match.status === 'FINISHED'} class:card-live={match.status === 'LIVE'} class:card-double={match.doublePoints}>
+
                                 <!-- Header: Stage & Time -->
                                 <div class="card-header">
                                     <span class="stage-tag">{match.stage.replace(/_/g, ' ')}</span>
+                                    {#if match.doublePoints}<span class="double-pts-tag">⚡ 2x</span>{/if}
                                     <span class="match-time">🕒 {formattedTime}</span>
                                 </div>
 
@@ -869,6 +873,33 @@
         opacity: 0.85;
         background: rgba(255, 255, 255, 0.01);
         border-color: rgba(255, 255, 255, 0.05);
+    }
+    .match-card.double-pts {
+        border-color: rgba(245, 158, 11, 0.4);
+        background: rgba(245, 158, 11, 0.04);
+    }
+    .double-pts-banner {
+        background: linear-gradient(90deg, rgba(245,158,11,0.15), transparent);
+        border-bottom: 1px solid rgba(245,158,11,0.2);
+        color: var(--color-accent);
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 0.35rem 1rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .double-pts-tag {
+        background: rgba(245,158,11,0.15);
+        color: var(--color-accent);
+        font-size: 0.7rem;
+        font-weight: 800;
+        padding: 0.15rem 0.45rem;
+        border-radius: 4px;
+        border: 1px solid rgba(245,158,11,0.3);
+        letter-spacing: 0.03em;
+    }
+    .card-double {
+        border-left: 3px solid var(--color-accent);
     }
 
     .match-teams {
