@@ -93,7 +93,7 @@
 
     {#if isLocked}
         <div class="locked-banner">
-            🔒 The group stage has ended. Winner predictions are now locked.
+            🔒 Winner predictions are locked.
         </div>
         {#if savedPrediction}
             <div class="locked-pick-display">
