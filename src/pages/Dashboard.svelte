@@ -485,7 +485,12 @@
                                         {:else if match.status === 'LIVE'}
                                             <div class="status-badge live">LIVE</div>
                                         {:else}
-                                            <div class="status-badge pending">PENDING</div>
+                                            {@const lockStatus = getLockStatus(match, now)}
+                                            {#if lockStatus.status === 'unlocked'}
+                                                <a href="#/match/{match.id}" class="action-button edit-btn">Edit</a>
+                                            {:else}
+                                                <div class="status-badge pending">LOCKED 🔒</div>
+                                            {/if}
                                         {/if}
                                     </div>
                                 </div>
@@ -1043,6 +1048,10 @@
         opacity: 0.9;
         transform: translateY(-2px);
         box-shadow: 0 6px 15px rgba(56, 189, 248, 0.35);
+    }
+    .edit-btn {
+        font-size: 0.85rem;
+        padding: 0.4rem 1rem;
     }
 
     .locked-predictions-indicator {
