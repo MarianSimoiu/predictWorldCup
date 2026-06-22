@@ -38,6 +38,8 @@
     // Filter and sort states for predictions
     let sortType = $state('date'); // 'date' | 'points_desc' | 'points_asc'
     let filterUpcomingOnly = $state(false);
+    let filterJokerEligible = $state(false);
+    let filterDoublePoints = $state(false);
 
     // Joker status — which match (if any) has the user played their joker on
     let jokerStatus = $derived.by(() => {
@@ -119,6 +121,12 @@
         // Filter: Next games only (eliminate finished games)
         if (filterUpcomingOnly) {
             list = list.filter(item => item.match.status !== 'FINISHED');
+        }
+        if (filterJokerEligible) {
+            list = list.filter(item => item.match.jokerEligible === true);
+        }
+        if (filterDoublePoints) {
+            list = list.filter(item => item.match.doublePoints === true);
         }
 
         // Sort logic
@@ -219,7 +227,9 @@
 
     <!-- Joker Card status widget -->
     {#if jokerRoundActive}
-        <div class="joker-status-widget {jokerStatus.used ? 'joker-used' : 'joker-available'}">
+        <div class="joker-status-widget {jokerStatus.used ? 'joker-used' : 'joker-available'}" role="button" tabindex="0"
+            onclick={() => { activeTab = 'predictions'; filterJokerEligible = true; filterDoublePoints = false; filterUpcomingOnly = false; }}
+            onkeydown={(e) => e.key === 'Enter' && (activeTab = 'predictions', filterJokerEligible = true)}>
             <span class="jsw-icon">🃏</span>
             <div class="jsw-text">
                 <span class="jsw-title">Joker Card</span>
@@ -420,14 +430,24 @@
             {:else}
                 <!-- Controls: Sort & Filter -->
                 <div class="controls-bar">
-                    <div class="filter-control">
+                    <div class="filters-group">
                         <label class="checkbox-container">
                             <input type="checkbox" bind:checked={filterUpcomingOnly} />
                             <span class="checkmark"></span>
-                            Show next games only
+                            Next games only
+                        </label>
+                        <label class="checkbox-container joker-filter" class:active={filterJokerEligible}>
+                            <input type="checkbox" bind:checked={filterJokerEligible} />
+                            <span class="checkmark checkmark-joker"></span>
+                            🃏 Joker eligible
+                        </label>
+                        <label class="checkbox-container double-filter" class:active={filterDoublePoints}>
+                            <input type="checkbox" bind:checked={filterDoublePoints} />
+                            <span class="checkmark checkmark-double"></span>
+                            ⚡ Double points
                         </label>
                     </div>
-                    
+
                     <div class="sort-control">
                         <span class="sort-label">Sort by:</span>
                         <select bind:value={sortType} class="sort-select">
@@ -766,6 +786,18 @@
         gap: 1.5rem;
         flex-wrap: wrap;
     }
+    .filters-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+    }
+    .checkbox-container.joker-filter.active { color: #a78bfa; }
+    .checkbox-container.double-filter.active { color: var(--color-accent); }
+    .checkmark-joker { border-color: rgba(139,92,246,0.5) !important; }
+    .checkbox-container.joker-filter input:checked ~ .checkmark-joker { background: #7c3aed !important; border-color: #7c3aed !important; }
+    .checkmark-double { border-color: rgba(245,158,11,0.5) !important; }
+    .checkbox-container.double-filter input:checked ~ .checkmark-double { background: var(--color-accent) !important; border-color: var(--color-accent) !important; }
 
     /* Custom Checkbox */
     .checkbox-container {
@@ -977,6 +1009,8 @@
     }
 
     /* Joker status widget */
+    .joker-status-widget { cursor: pointer; }
+    .joker-status-widget:hover { border-color: rgba(139,92,246,0.5); background: rgba(139,92,246,0.1); }
     .joker-status-widget {
         display: flex;
         align-items: center;
