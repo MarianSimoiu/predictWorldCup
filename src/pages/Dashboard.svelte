@@ -39,6 +39,18 @@
     let sortType = $state('date'); // 'date' | 'points_desc' | 'points_asc'
     let filterUpcomingOnly = $state(false);
 
+    // Joker status — which match (if any) has the user played their joker on
+    let jokerStatus = $derived.by(() => {
+        const jokerPred = Object.values(predictionStore.predictions).find(p => p.isJoker === true);
+        if (!jokerPred) return { used: false, matchId: null, matchName: null };
+        const m = matchStore.matches.find(m => String(m.id) === String(jokerPred.matchId));
+        const matchName = m ? `${m.team1?.name} vs ${m.team2?.name}` : 'Unknown match';
+        return { used: true, matchId: jokerPred.matchId, matchName };
+    });
+
+    // True if any joker-eligible match exists in the store (round 3 is active)
+    let jokerRoundActive = $derived(matchStore.matches.some(m => m.jokerEligible));
+
     // Format time and date for Bucharest timezone (Europe/Bucharest)
     function formatBucharestDateTime(date) {
         if (!(date instanceof Date) || isNaN(date)) return '';
@@ -205,6 +217,26 @@
         </div>
     </div>
 
+    <!-- Joker Card status widget -->
+    {#if jokerRoundActive}
+        <div class="joker-status-widget {jokerStatus.used ? 'joker-used' : 'joker-available'}">
+            <span class="jsw-icon">🃏</span>
+            <div class="jsw-text">
+                <span class="jsw-title">Joker Card</span>
+                {#if jokerStatus.used}
+                    <span class="jsw-sub">Played on <strong>{jokerStatus.matchName}</strong></span>
+                {:else}
+                    <span class="jsw-sub">Available — play it on any eligible round 3 match for 3× points</span>
+                {/if}
+            </div>
+            {#if !jokerStatus.used}
+                <span class="jsw-badge">AVAILABLE</span>
+            {:else}
+                <span class="jsw-badge used">USED</span>
+            {/if}
+        </div>
+    {/if}
+
     <!-- Champion pick countdown -->
     <div class="champion-countdown {championCountdown ? (championCountdown.reopen ? 'reopen' : '') : 'locked'}">
         <div class="cd-left">
@@ -281,9 +313,12 @@
                         {@const lockStatus = getLockStatus(match, now)}
                         {@const formattedTime = formatBucharestDateTime(new Date(match.kickoff))}
                         {@const userPrediction = predictionStore.predictions[match.id]}
-                        <div class="match-card" class:locked={lockStatus.status === 'locked'} class:live={lockStatus.status === 'live'} class:finished={match.status === 'FINISHED'} class:double-pts={match.doublePoints}>
+                        <div class="match-card" class:locked={lockStatus.status === 'locked'} class:live={lockStatus.status === 'live'} class:finished={match.status === 'FINISHED'} class:double-pts={match.doublePoints} class:joker-eligible={match.jokerEligible}>
                             {#if match.doublePoints}
                                 <div class="double-pts-banner">⚡ Double Points Match</div>
+                            {/if}
+                            {#if match.jokerEligible}
+                                <div class="joker-eligible-banner">🃏 Joker Eligible{jokerStatus.used && String(jokerStatus.matchId) === String(match.id) ? ' · Your Joker is on this game' : !jokerStatus.used ? ' · You can play your Joker here' : ''}</div>
                             {/if}
                             <div class="match-teams">
                                 <div class="team team-1">
@@ -420,7 +455,11 @@
                                 <div class="card-header">
                                     <span class="stage-tag">{match.stage.replace(/_/g, ' ')}</span>
                                     {#if match.doublePoints}<span class="double-pts-tag">⚡ 2x</span>{/if}
-                                    {#if pred.isJoker}<span class="joker-tag">🃏 Joker</span>{/if}
+                                    {#if pred.isJoker}
+                                        <span class="joker-tag">🃏 Joker</span>
+                                    {:else if match.jokerEligible && match.status !== 'FINISHED'}
+                                        <span class="joker-eligible-tag">🃏 Eligible</span>
+                                    {/if}
                                     <span class="match-time">🕒 {formattedTime}</span>
                                 </div>
 
@@ -914,7 +953,83 @@
         border: 1px solid rgba(139,92,246,0.3);
         letter-spacing: 0.03em;
     }
-    .card-double .joker-tag { display: inline; }
+    .joker-eligible-tag {
+        background: rgba(139,92,246,0.08);
+        color: #a78bfa;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 0.15rem 0.45rem;
+        border-radius: 4px;
+        border: 1px dashed rgba(139,92,246,0.35);
+        letter-spacing: 0.03em;
+    }
+
+    /* Joker eligible banner on upcoming match card */
+    .match-card.joker-eligible { border-color: rgba(139,92,246,0.3); }
+    .joker-eligible-banner {
+        background: linear-gradient(90deg, rgba(139,92,246,0.12), transparent);
+        border-bottom: 1px solid rgba(139,92,246,0.2);
+        color: #a78bfa;
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 0.3rem 1rem;
+        letter-spacing: 0.03em;
+    }
+
+    /* Joker status widget */
+    .joker-status-widget {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1.25rem;
+        border-radius: 10px;
+        border: 1px solid rgba(139,92,246,0.25);
+        background: rgba(139,92,246,0.06);
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+    }
+    .joker-status-widget.joker-used {
+        border-color: rgba(139,92,246,0.15);
+        background: rgba(139,92,246,0.03);
+        opacity: 0.8;
+    }
+    .jsw-icon { font-size: 1.5rem; }
+    .jsw-text { flex: 1; min-width: 0; }
+    .jsw-title {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #a78bfa;
+    }
+    .jsw-sub {
+        display: block;
+        font-size: 0.75rem;
+        color: #888;
+        margin-top: 0.1rem;
+    }
+    .jsw-sub strong { color: #c4b5fd; }
+    .jsw-badge {
+        font-size: 0.68rem;
+        font-weight: 800;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        background: rgba(139,92,246,0.2);
+        color: #a78bfa;
+        border: 1px solid rgba(139,92,246,0.4);
+        letter-spacing: 0.05em;
+        white-space: nowrap;
+        animation: pulse-joker 2s infinite;
+    }
+    .jsw-badge.used {
+        background: rgba(100,100,100,0.15);
+        color: #666;
+        border-color: rgba(100,100,100,0.2);
+        animation: none;
+    }
+    @keyframes pulse-joker {
+        0%, 100% { opacity: 0.7; }
+        50%       { opacity: 1; }
+    }
     .card-double {
         border-left: 3px solid var(--color-accent);
     }
