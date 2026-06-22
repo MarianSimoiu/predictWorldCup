@@ -1,11 +1,13 @@
 <script>
     import { userStore } from '../lib/stores.svelte.js';
+    import { predictionStore, matchStore } from '../lib/stores.svelte.js';
     import { savePrediction } from '../lib/db.js';
 
     let { match, existingPrediction = null } = $props();
 
     let result = $state(existingPrediction?.predictedResult || null);
     let goalsTier = $state(existingPrediction?.predictedGoalsTier || null);
+    let isJoker = $state(existingPrediction?.isJoker || false);
     let isSaving = $state(false);
     let saveMessage = $state('');
 
@@ -13,6 +15,7 @@
         if (existingPrediction) {
             result = existingPrediction.predictedResult || null;
             goalsTier = existingPrediction.predictedGoalsTier || null;
+            isJoker = existingPrediction.isJoker || false;
         }
     });
 
@@ -36,6 +39,13 @@
         return new Date().getTime() >= (kickoffTime - 60 * 60 * 1000);
     });
 
+    // True if user already played their joker on a DIFFERENT match
+    let jokerUsedElsewhere = $derived.by(() => {
+        return Object.values(predictionStore.predictions).some(p =>
+            p.isJoker === true && String(p.matchId) !== String(match?.id)
+        );
+    });
+
     async function handleSave() {
         if (!result) {
             saveMessage = 'Please select a result (W/D/L).';
@@ -45,7 +55,7 @@
         isSaving = true;
         saveMessage = '';
         try {
-            await savePrediction(userStore.user.uid, match.id, result, goalsTier);
+            await savePrediction(userStore.user.uid, match.id, result, goalsTier, isJoker);
             saveMessage = 'Prediction saved successfully! ✅';
         } catch (err) {
             saveMessage = `Error: ${err.message}`;
@@ -54,9 +64,12 @@
     }
 </script>
 
-<div class="prediction-card" class:double-pts={match?.doublePoints}>
+<div class="prediction-card" class:double-pts={match?.doublePoints} class:joker-active={isJoker}>
     {#if match?.doublePoints}
         <div class="double-pts-banner">⚡ Double Points Match — up to 12 pts</div>
+    {/if}
+    {#if match?.jokerEligible && isJoker}
+        <div class="joker-banner">🃏 Joker Card Active — up to 18 pts</div>
     {/if}
     <div class="header">
         <h3>Your Prediction</h3>
@@ -129,9 +142,35 @@
             <small>Tap an active option again to deselect.</small>
         </div>
 
+        {#if match?.jokerEligible && !isLocked}
+            <div class="joker-section" class:joker-on={isJoker} class:joker-disabled={jokerUsedElsewhere && !isJoker}>
+                <div class="joker-info">
+                    <span class="joker-icon">🃏</span>
+                    <div>
+                        <strong class="joker-title">Joker Card</strong>
+                        <span class="joker-desc">
+                            {#if jokerUsedElsewhere}
+                                Already used on another match
+                            {:else if isJoker}
+                                Active — correct prediction scores 3×
+                            {:else}
+                                Play your Joker on this match for 3× points
+                            {/if}
+                        </span>
+                    </div>
+                </div>
+                <button
+                    class="joker-toggle {isJoker ? 'joker-toggle-on' : 'joker-toggle-off'}"
+                    onclick={() => isJoker = !isJoker}
+                    disabled={jokerUsedElsewhere && !isJoker}>
+                    {isJoker ? 'Remove Joker' : 'Play Joker'}
+                </button>
+            </div>
+        {/if}
+
         {#if !isLocked}
-            <button class="save-btn" onclick={handleSave} disabled={isSaving || !result}>
-                {isSaving ? 'Saving...' : 'Save Prediction'}
+            <button class="save-btn" class:save-btn-joker={isJoker} onclick={handleSave} disabled={isSaving || !result}>
+                {isSaving ? 'Saving...' : isJoker ? '🃏 Save with Joker' : 'Save Prediction'}
             </button>
         {/if}
 
@@ -142,14 +181,14 @@
         {/if}
 
         <div class="scoring-guide">
-            <h5>💡 How Scoring Works{match?.doublePoints ? ' · ⚡ Double Points' : ''}</h5>
+            <h5>💡 How Scoring Works{match?.doublePoints ? ' · ⚡ 2×' : ''}{isJoker ? ' · 🃏 3×' : ''}</h5>
             <ul>
                 <li>
-                    <span class="points-badge">{match?.doublePoints ? '+12' : '+6'} pts</span>
+                    <span class="points-badge">{isJoker ? '+18' : match?.doublePoints ? '+12' : '+6'} pts</span>
                     <strong>Perfect Combo:</strong> Correct Match Result AND Correct Total Goals Tier.
                 </li>
                 <li>
-                    <span class="points-badge">{match?.doublePoints ? '+6' : '+3'} pts</span>
+                    <span class="points-badge">{isJoker ? '+9' : match?.doublePoints ? '+6' : '+3'} pts</span>
                     <strong>Partial Match:</strong> Correct Match Result OR Correct Total Goals Tier.
                 </li>
                 <li>
@@ -185,6 +224,86 @@
         padding: 0.5rem clamp(0.75rem, 3vw, 1.5rem);
         letter-spacing: 0.04em;
         text-transform: uppercase;
+    }
+    .joker-banner {
+        background: linear-gradient(90deg, rgba(139,92,246,0.18), transparent);
+        border-bottom: 1px solid rgba(139,92,246,0.3);
+        color: #a78bfa;
+        font-size: 0.78rem;
+        font-weight: 700;
+        padding: 0.5rem clamp(0.75rem, 3vw, 1.5rem);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .prediction-card.joker-active {
+        border-color: rgba(139,92,246,0.4);
+        background: rgba(139,92,246,0.04);
+    }
+    .joker-section {
+        background: rgba(139,92,246,0.06);
+        border: 1px solid rgba(139,92,246,0.2);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    .joker-section.joker-on {
+        background: rgba(139,92,246,0.12);
+        border-color: rgba(139,92,246,0.45);
+    }
+    .joker-section.joker-disabled {
+        opacity: 0.5;
+    }
+    .joker-info {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+    .joker-icon { font-size: 1.4rem; }
+    .joker-title {
+        display: block;
+        font-size: 0.88rem;
+        color: #a78bfa;
+        font-weight: 700;
+    }
+    .joker-desc {
+        display: block;
+        font-size: 0.75rem;
+        color: #888;
+        margin-top: 0.1rem;
+    }
+    .joker-toggle {
+        padding: 0.4rem 1rem;
+        border-radius: 6px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+        border: none;
+        white-space: nowrap;
+        transition: all 0.15s;
+    }
+    .joker-toggle-off {
+        background: rgba(139,92,246,0.15);
+        color: #a78bfa;
+        border: 1px solid rgba(139,92,246,0.35);
+    }
+    .joker-toggle-off:hover:not(:disabled) {
+        background: rgba(139,92,246,0.25);
+    }
+    .joker-toggle-on {
+        background: #7c3aed;
+        color: white;
+    }
+    .joker-toggle:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    .save-btn-joker {
+        background: linear-gradient(135deg, #7c3aed, #a78bfa) !important;
     }
     .header {
         display: flex;

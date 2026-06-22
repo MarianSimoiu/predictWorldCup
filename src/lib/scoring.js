@@ -26,6 +26,7 @@ export function calculatePredictionScore(prediction, actualResult, actualTotalGo
     }
 
     if (doublePoints) points *= 2;
+    if (prediction.isJoker) points *= 3;
 
     return { points, resultCorrect, goalsCorrect };
 }

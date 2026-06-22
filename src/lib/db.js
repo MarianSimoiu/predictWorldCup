@@ -126,10 +126,10 @@ function isPlaceholderTeam(teamName) {
 
 export { isPlaceholderTeam };
 
-export async function savePrediction(userId, matchId, predictedResult, predictedGoalsTier) {
+export async function savePrediction(userId, matchId, predictedResult, predictedGoalsTier, isJoker = false) {
     const predictionId = `${userId}_${matchId}`;
     const docRef = doc(db, 'predictions', predictionId);
-    
+
     // Check if match is locked (1 hour before kickoff)
     const match = matchStore.matches.find(m => String(m.id) === String(matchId));
     if (!match) throw new Error("Match not found");
@@ -138,17 +138,22 @@ export async function savePrediction(userId, matchId, predictedResult, predicted
     if (isPlaceholderTeam(match.team1?.name) || isPlaceholderTeam(match.team2?.name)) {
         throw new Error("Teams are not yet finalized. Predictions are locked until both qualifying teams are known.");
     }
-    
+
     const lockTime = new Date(match.kickoff.getTime() - 60 * 60 * 1000); // 1 hour before
     if (new Date() >= lockTime) {
         throw new Error("Match is locked. Predictions are closed.");
     }
-    
+
+    if (isJoker && !match.jokerEligible) {
+        throw new Error("This match is not eligible for the Joker Card.");
+    }
+
     await setDoc(docRef, {
         userId,
         matchId: String(matchId),
         predictedResult,
         predictedGoalsTier: predictedGoalsTier || null,
+        isJoker: isJoker || false,
         submittedAt: new Date(),
         pointsAwarded: 0,
         resultCorrect: null,

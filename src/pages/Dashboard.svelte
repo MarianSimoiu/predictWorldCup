@@ -420,6 +420,7 @@
                                 <div class="card-header">
                                     <span class="stage-tag">{match.stage.replace(/_/g, ' ')}</span>
                                     {#if match.doublePoints}<span class="double-pts-tag">⚡ 2x</span>{/if}
+                                    {#if pred.isJoker}<span class="joker-tag">🃏 Joker</span>{/if}
                                     <span class="match-time">🕒 {formattedTime}</span>
                                 </div>
 
@@ -903,6 +904,17 @@
         border: 1px solid rgba(245,158,11,0.3);
         letter-spacing: 0.03em;
     }
+    .joker-tag {
+        background: rgba(139,92,246,0.15);
+        color: #a78bfa;
+        font-size: 0.7rem;
+        font-weight: 800;
+        padding: 0.15rem 0.45rem;
+        border-radius: 4px;
+        border: 1px solid rgba(139,92,246,0.3);
+        letter-spacing: 0.03em;
+    }
+    .card-double .joker-tag { display: inline; }
     .card-double {
         border-left: 3px solid var(--color-accent);
     }
