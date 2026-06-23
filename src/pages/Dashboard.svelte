@@ -120,6 +120,19 @@
     // True if any joker-eligible match exists in the store (round 3 is active)
     let jokerRoundActive = $derived(matchStore.matches.some(m => m.jokerEligible));
 
+    // Live games
+    let liveGames = $derived(matchStore.matches.filter(m => m.status === 'LIVE'));
+    let hasLiveGames = $derived(liveGames.length > 0);
+
+    // Auto-switch to live tab when games go live; fall back to upcoming when they end
+    $effect(() => {
+        if (hasLiveGames) {
+            activeTab = 'live';
+        } else if (activeTab === 'live') {
+            activeTab = 'upcoming';
+        }
+    });
+
     // Format time and date for Bucharest timezone (Europe/Bucharest)
     function formatBucharestDateTime(date) {
         if (!(date instanceof Date) || isNaN(date)) return '';
@@ -284,7 +297,7 @@
     <!-- Joker Card status widget -->
     {#if jokerRoundActive}
         <div class="joker-status-widget {jokerStatus.used ? 'joker-used' : 'joker-available'}" role="button" tabindex="0"
-            onclick={() => { activeTab = 'upcoming'; filterAllJoker = true; filterAllDouble = false; filterAllUpcoming = false; }}
+            onclick={() => { activeTab = 'upcoming'; filterAllJoker = true; filterAllDouble = false; allGamesView = 'upcoming'; }}
             onkeydown={(e) => e.key === 'Enter' && (activeTab = 'upcoming', filterAllJoker = true)}>
             <span class="jsw-icon">🃏</span>
             <div class="jsw-text">
@@ -349,6 +362,14 @@
 
     <!-- Tabbed Navigation Bar -->
     <div class="tabs-navigation">
+        {#if hasLiveGames}
+            <button
+                class="tab-btn live-tab-btn"
+                class:active={activeTab === 'live'}
+                onclick={() => activeTab = 'live'}>
+                🔴 Live ({liveGames.length})
+            </button>
+        {/if}
         <button
             class="tab-btn"
             class:active={activeTab === 'upcoming'}
@@ -364,7 +385,66 @@
     </div>
 
     <!-- Tab Contents -->
-    {#if activeTab === 'upcoming'}
+    {#if activeTab === 'live'}
+        <!-- Live Games Section -->
+        <div class="live-games-section animate-fade-in">
+            <div class="live-section-header">
+                <span class="live-dot-pulse"></span>
+                <span class="live-section-title">Games in Progress</span>
+            </div>
+            <div class="live-games-list">
+                {#each liveGames as match (match.id)}
+                    {@const userPrediction = predictionStore.predictions[match.id]}
+                    <div class="live-match-card" class:double-pts={match.doublePoints} class:joker-eligible={match.jokerEligible}>
+                        {#if match.doublePoints}
+                            <div class="double-pts-banner">⚡ Double Points Match</div>
+                        {/if}
+                        {#if match.jokerEligible}
+                            <div class="joker-eligible-banner">🃏 Joker Eligible{jokerStatus.used && String(jokerStatus.matchId) === String(match.id) ? ' · Your Joker is on this game' : ''}</div>
+                        {/if}
+                        <div class="live-score-row">
+                            <div class="live-team">
+                                {#if match.team1?.crest}
+                                    <img src={match.team1.crest} alt={match.team1.name} class="team-crest" />
+                                {/if}
+                                <span class="live-team-name">{match.team1?.name || 'TBD'}</span>
+                            </div>
+                            <div class="live-score-center">
+                                <span class="live-badge-inline">🔴 LIVE</span>
+                                <span class="live-score-value">
+                                    {match.score?.team1 ?? '–'} : {match.score?.team2 ?? '–'}
+                                </span>
+                            </div>
+                            <div class="live-team live-team-right">
+                                <span class="live-team-name">{match.team2?.name || 'TBD'}</span>
+                                {#if match.team2?.crest}
+                                    <img src={match.team2.crest} alt={match.team2.name} class="team-crest" />
+                                {/if}
+                            </div>
+                        </div>
+                        {#if userPrediction}
+                            <div class="live-pred-row">
+                                <span class="live-pred-label">Your pick:</span>
+                                <strong>
+                                    {userPrediction.predictedResult === 'team1' ? (match.team1?.name || 'Team 1') :
+                                     userPrediction.predictedResult === 'team2' ? (match.team2?.name || 'Team 2') : 'Draw'}
+                                </strong>
+                                {#if userPrediction.predictedGoalsTier}
+                                    <span class="live-pred-sep">·</span>
+                                    <strong>{userPrediction.predictedGoalsTier} Goals</strong>
+                                {/if}
+                                {#if userPrediction.isJoker}
+                                    <span class="live-joker-tag">🃏 JOKER</span>
+                                {/if}
+                            </div>
+                        {:else}
+                            <div class="live-pred-row live-no-pick">No prediction placed</div>
+                        {/if}
+                    </div>
+                {/each}
+            </div>
+        </div>
+    {:else if activeTab === 'upcoming'}
         <!-- All Games Section -->
         <div class="all-games-section animate-fade-in">
             {#if matchStore.loading}
@@ -396,7 +476,7 @@
                     <div class="no-matches">No matches match the selected filters.</div>
                 {:else}
                     {#each allGamesGrouped as group (group.label)}
-                        {@const collapsed = isSectionCollapsed(group.label, group.allFinished)}
+                        {@const collapsed = isSectionCollapsed(group.label, allGamesView === 'upcoming' && group.allFinished)}
                         {@const finishedCount = group.matches.filter(m => m.status === 'FINISHED').length}
                         <div class="round-section">
                             <button class="round-header" class:all-done={group.allFinished} onclick={() => toggleSection(group.label)}>
@@ -852,6 +932,118 @@
         color: var(--color-primary);
         border-bottom-color: var(--color-primary);
         text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    }
+
+    .live-tab-btn {
+        color: #ef4444;
+        animation: live-tab-pulse 1.8s ease-in-out infinite;
+    }
+    .live-tab-btn.active {
+        color: #ef4444;
+        border-bottom-color: #ef4444;
+        text-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+    }
+    @keyframes live-tab-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.65; }
+    }
+
+    /* Live Games Section */
+    .live-games-section { padding: 0; }
+    .live-section-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #ef4444;
+    }
+    .live-dot-pulse {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #ef4444;
+        display: inline-block;
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+        animation: dot-pulse 1.5s ease-out infinite;
+        flex-shrink: 0;
+    }
+    @keyframes dot-pulse {
+        0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); }
+        70%  { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
+        100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    }
+    .live-section-title { letter-spacing: 0.03em; }
+    .live-games-list { display: flex; flex-direction: column; gap: 1rem; }
+    .live-match-card {
+        background: rgba(239, 68, 68, 0.06);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 12px;
+        overflow: hidden;
+        padding: 1.25rem;
+    }
+    .live-score-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.85rem;
+    }
+    .live-team {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex: 1;
+    }
+    .live-team-right { justify-content: flex-end; text-align: right; }
+    .live-team-name {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #fff;
+    }
+    .live-score-center {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.3rem;
+        flex-shrink: 0;
+    }
+    .live-badge-inline {
+        font-size: 0.7rem;
+        font-weight: 800;
+        color: #ef4444;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    .live-score-value {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #fff;
+        letter-spacing: 0.05em;
+    }
+    .live-pred-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: #ccc;
+        padding-top: 0.75rem;
+        border-top: 1px solid rgba(255,255,255,0.07);
+    }
+    .live-pred-row strong { color: #fff; }
+    .live-pred-label { color: #888; }
+    .live-pred-sep { color: #555; }
+    .live-no-pick { color: #666; font-style: italic; }
+    .live-joker-tag {
+        background: rgba(139, 92, 246, 0.2);
+        color: #a78bfa;
+        border: 1px solid rgba(139, 92, 246, 0.35);
+        border-radius: 4px;
+        padding: 0.1rem 0.4rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin-left: 0.25rem;
     }
 
     /* Tab contents animation */
