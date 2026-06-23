@@ -41,8 +41,10 @@
     let filterJokerEligible = $state(false);
     let filterDoublePoints = $state(false);
 
+    // All Games tab view mode
+    let allGamesView = $state('upcoming'); // 'upcoming' | 'finished'
+
     // All Games tab filters
-    let filterAllUpcoming = $state(false);
     let filterAllJoker = $state(false);
     let filterAllDouble = $state(false);
 
@@ -70,7 +72,13 @@
     let allGamesGrouped = $derived.by(() => {
         if (matchStore.loading) return [];
         let matches = [...matchStore.matches];
-        if (filterAllUpcoming) matches = matches.filter(m => m.status !== 'FINISHED');
+
+        if (allGamesView === 'upcoming') {
+            matches = matches.filter(m => m.status !== 'FINISHED');
+        } else {
+            matches = matches.filter(m => m.status === 'FINISHED').sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff)).slice(0, 8);
+        }
+
         if (filterAllJoker)    matches = matches.filter(m => m.jokerEligible);
         if (filterAllDouble)   matches = matches.filter(m => m.doublePoints);
 
@@ -82,9 +90,13 @@
             groups[label].matches.push(m);
             if (m.status !== 'FINISHED') groups[label].allFinished = false;
         }
-        // Sort matches within each group chronologically
+        // Sort matches within each group
         for (const g of Object.values(groups)) {
-            g.matches.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+            if (allGamesView === 'upcoming') {
+                g.matches.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+            } else {
+                g.matches.sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff));
+            }
         }
         return Object.values(groups).sort((a, b) => a.order - b.order);
     });
@@ -360,23 +372,24 @@
             {:else if matchStore.error}
                 <ErrorMessage error={matchStore.error} context="All Games" />
             {:else}
-                <!-- Filters -->
-                <div class="all-games-filters">
-                    <label class="checkbox-container" class:active={filterAllUpcoming}>
-                        <input type="checkbox" bind:checked={filterAllUpcoming} />
-                        <span class="checkmark"></span>
-                        Upcoming only
-                    </label>
-                    <label class="checkbox-container joker-filter" class:active={filterAllJoker}>
-                        <input type="checkbox" bind:checked={filterAllJoker} />
-                        <span class="checkmark checkmark-joker"></span>
-                        🃏 Joker eligible
-                    </label>
-                    <label class="checkbox-container double-filter" class:active={filterAllDouble}>
-                        <input type="checkbox" bind:checked={filterAllDouble} />
-                        <span class="checkmark checkmark-double"></span>
-                        ⚡ Double points
-                    </label>
+                <!-- View Toggle & Filters -->
+                <div class="all-games-header">
+                    <div class="view-toggle">
+                        <button class="toggle-btn" class:active={allGamesView === 'upcoming'} onclick={() => allGamesView = 'upcoming'}>📅 Upcoming</button>
+                        <button class="toggle-btn" class:active={allGamesView === 'finished'} onclick={() => allGamesView = 'finished'}>✅ Just Finished</button>
+                    </div>
+                    <div class="all-games-filters">
+                        <label class="checkbox-container joker-filter" class:active={filterAllJoker}>
+                            <input type="checkbox" bind:checked={filterAllJoker} />
+                            <span class="checkmark checkmark-joker"></span>
+                            🃏 Joker eligible
+                        </label>
+                        <label class="checkbox-container double-filter" class:active={filterAllDouble}>
+                            <input type="checkbox" bind:checked={filterAllDouble} />
+                            <span class="checkmark checkmark-double"></span>
+                            ⚡ Double points
+                        </label>
+                    </div>
                 </div>
 
                 {#if allGamesGrouped.length === 0}
@@ -980,17 +993,48 @@
         margin-bottom: 2rem;
     }
 
+    /* All Games header */
+    .all-games-header {
+        display: flex;
+        gap: 1.5rem;
+        align-items: center;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+    }
+
+    /* View toggle */
+    .view-toggle {
+        display: flex;
+        gap: 0.25rem;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 0.25rem;
+    }
+    .toggle-btn {
+        padding: 0.4rem 0.9rem;
+        border: none;
+        background: transparent;
+        color: #888;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border-radius: 6px;
+        transition: all 0.15s;
+    }
+    .toggle-btn:hover { color: #aaa; }
+    .toggle-btn.active {
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.15);
+    }
+
     /* Filters bar for All Games */
     .all-games-filters {
         display: flex;
         flex-wrap: wrap;
         gap: 1rem;
         align-items: center;
-        background: rgba(255,255,255,0.02);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 10px;
-        padding: 0.75rem 1rem;
-        margin-bottom: 1.25rem;
     }
 
     /* Round section */
