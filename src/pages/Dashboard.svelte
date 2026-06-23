@@ -41,6 +41,61 @@
     let filterJokerEligible = $state(false);
     let filterDoublePoints = $state(false);
 
+    // All Games tab filters
+    let filterAllUpcoming = $state(false);
+    let filterAllJoker = $state(false);
+    let filterAllDouble = $state(false);
+
+    // Collapsed state per round section (label → bool)
+    let collapsedSections = $state({});
+
+    function getRoundLabel(match) {
+        if (match.stage === 'GROUP_STAGE') return `Group Stage — Round ${match.matchday}`;
+        const labels = {
+            ROUND_OF_32: 'Round of 32',
+            ROUND_OF_16: 'Round of 16',
+            QUARTER_FINALS: 'Quarter Finals',
+            SEMI_FINALS: 'Semi Finals',
+            FINAL: 'Final',
+        };
+        return labels[match.stage] || match.stage?.replace(/_/g, ' ') || 'Unknown Round';
+    }
+
+    function getRoundOrder(match) {
+        if (match.stage === 'GROUP_STAGE') return match.matchday || 0;
+        const order = { ROUND_OF_32: 4, ROUND_OF_16: 5, QUARTER_FINALS: 6, SEMI_FINALS: 7, FINAL: 8 };
+        return order[match.stage] ?? 99;
+    }
+
+    let allGamesGrouped = $derived.by(() => {
+        if (matchStore.loading) return [];
+        let matches = [...matchStore.matches];
+        if (filterAllUpcoming) matches = matches.filter(m => m.status !== 'FINISHED');
+        if (filterAllJoker)    matches = matches.filter(m => m.jokerEligible);
+        if (filterAllDouble)   matches = matches.filter(m => m.doublePoints);
+
+        const groups = {};
+        for (const m of matches) {
+            const label = getRoundLabel(m);
+            const order = getRoundOrder(m);
+            if (!groups[label]) groups[label] = { label, order, matches: [], allFinished: true };
+            groups[label].matches.push(m);
+            if (m.status !== 'FINISHED') groups[label].allFinished = false;
+        }
+        // Sort matches within each group chronologically
+        for (const g of Object.values(groups)) {
+            g.matches.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+        }
+        return Object.values(groups).sort((a, b) => a.order - b.order);
+    });
+
+    function isSectionCollapsed(label, allFinished) {
+        return collapsedSections[label] ?? allFinished;
+    }
+    function toggleSection(label) {
+        collapsedSections[label] = !isSectionCollapsed(label, false);
+    }
+
     // Joker status — which match (if any) has the user played their joker on
     let jokerStatus = $derived.by(() => {
         const jokerPred = Object.values(predictionStore.predictions).find(p => p.isJoker === true);
@@ -94,17 +149,6 @@
             text: `Locks in ${hours}h ${minutes}m`,
             color: '#4ade80'
         };
-    }
-
-    // Get next 8 upcoming matches (or recently finished within 24h)
-    function getUpcomingMatches() {
-        const now = new Date();
-        return matchStore.matches
-            .filter(match => {
-                const kickoff = new Date(match.kickoff);
-                return match.status !== 'FINISHED' || kickoff > new Date(now.getTime() - 24 * 60 * 60 * 1000);
-            })
-            .slice(0, 8);
     }
 
     // Reactive list of user predictions sorted and filtered dynamically
@@ -228,8 +272,8 @@
     <!-- Joker Card status widget -->
     {#if jokerRoundActive}
         <div class="joker-status-widget {jokerStatus.used ? 'joker-used' : 'joker-available'}" role="button" tabindex="0"
-            onclick={() => { activeTab = 'predictions'; filterJokerEligible = true; filterDoublePoints = false; filterUpcomingOnly = false; }}
-            onkeydown={(e) => e.key === 'Enter' && (activeTab = 'predictions', filterJokerEligible = true)}>
+            onclick={() => { activeTab = 'upcoming'; filterAllJoker = true; filterAllDouble = false; filterAllUpcoming = false; }}
+            onkeydown={(e) => e.key === 'Enter' && (activeTab = 'upcoming', filterAllJoker = true)}>
             <span class="jsw-icon">🃏</span>
             <div class="jsw-text">
                 <span class="jsw-title">Joker Card</span>
@@ -293,15 +337,15 @@
 
     <!-- Tabbed Navigation Bar -->
     <div class="tabs-navigation">
-        <button 
-            class="tab-btn" 
-            class:active={activeTab === 'upcoming'} 
+        <button
+            class="tab-btn"
+            class:active={activeTab === 'upcoming'}
             onclick={() => activeTab = 'upcoming'}>
-            📅 Upcoming Matches ({matchStore.loading ? '...' : getUpcomingMatches().length})
+            🌍 All Games ({matchStore.loading ? '...' : matchStore.matches.length})
         </button>
-        <button 
-            class="tab-btn" 
-            class:active={activeTab === 'predictions'} 
+        <button
+            class="tab-btn"
+            class:active={activeTab === 'predictions'}
             onclick={() => activeTab = 'predictions'}>
             🔮 My Predictions ({predictionStore.loading ? '...' : userPredictionsList.length})
         </button>
@@ -309,117 +353,151 @@
 
     <!-- Tab Contents -->
     {#if activeTab === 'upcoming'}
-        <!-- Upcoming Matches Section -->
-        <div class="upcoming-section animate-fade-in">
+        <!-- All Games Section -->
+        <div class="all-games-section animate-fade-in">
             {#if matchStore.loading}
                 <div class="loading-message">Loading matches...</div>
             {:else if matchStore.error}
-                <ErrorMessage error={matchStore.error} context="Upcoming Matches" />
-            {:else if getUpcomingMatches().length === 0}
-                <div class="no-matches">No upcoming matches</div>
+                <ErrorMessage error={matchStore.error} context="All Games" />
             {:else}
-                <div class="matches-list">
-                    {#each getUpcomingMatches() as match (match.id)}
-                        {@const lockStatus = getLockStatus(match, now)}
-                        {@const formattedTime = formatBucharestDateTime(new Date(match.kickoff))}
-                        {@const userPrediction = predictionStore.predictions[match.id]}
-                        <div class="match-card" class:locked={lockStatus.status === 'locked'} class:live={lockStatus.status === 'live'} class:finished={match.status === 'FINISHED'} class:double-pts={match.doublePoints} class:joker-eligible={match.jokerEligible}>
-                            {#if match.doublePoints}
-                                <div class="double-pts-banner">⚡ Double Points Match</div>
-                            {/if}
-                            {#if match.jokerEligible}
-                                <div class="joker-eligible-banner">🃏 Joker Eligible{jokerStatus.used && String(jokerStatus.matchId) === String(match.id) ? ' · Your Joker is on this game' : !jokerStatus.used ? ' · You can play your Joker here' : ''}</div>
-                            {/if}
-                            <div class="match-teams">
-                                <div class="team team-1">
-                                    {#if match.team1?.crest}
-                                        <img src={match.team1.crest} alt={match.team1.name} class="team-crest" />
-                                    {/if}
-                                    <span class="team-name">{match.team1?.name || 'TBD'}</span>
-                                </div>
-                                <div class="vs">VS</div>
-                                <div class="team team-2">
-                                    <span class="team-name">{match.team2?.name || 'TBD'}</span>
-                                    {#if match.team2?.crest}
-                                        <img src={match.team2.crest} alt={match.team2.name} class="team-crest" />
-                                    {/if}
-                                </div>
-                            </div>
+                <!-- Filters -->
+                <div class="all-games-filters">
+                    <label class="checkbox-container" class:active={filterAllUpcoming}>
+                        <input type="checkbox" bind:checked={filterAllUpcoming} />
+                        <span class="checkmark"></span>
+                        Upcoming only
+                    </label>
+                    <label class="checkbox-container joker-filter" class:active={filterAllJoker}>
+                        <input type="checkbox" bind:checked={filterAllJoker} />
+                        <span class="checkmark checkmark-joker"></span>
+                        🃏 Joker eligible
+                    </label>
+                    <label class="checkbox-container double-filter" class:active={filterAllDouble}>
+                        <input type="checkbox" bind:checked={filterAllDouble} />
+                        <span class="checkmark checkmark-double"></span>
+                        ⚡ Double points
+                    </label>
+                </div>
 
-                            <div class="match-details">
-                                <div class="time-info">
-                                    <span class="time bucharest">🕒 {formattedTime}</span>
+                {#if allGamesGrouped.length === 0}
+                    <div class="no-matches">No matches match the selected filters.</div>
+                {:else}
+                    {#each allGamesGrouped as group (group.label)}
+                        {@const collapsed = isSectionCollapsed(group.label, group.allFinished)}
+                        {@const finishedCount = group.matches.filter(m => m.status === 'FINISHED').length}
+                        <div class="round-section">
+                            <button class="round-header" class:all-done={group.allFinished} onclick={() => toggleSection(group.label)}>
+                                <div class="round-header-left">
+                                    <span class="round-label">{group.label}</span>
+                                    <span class="round-meta">{group.matches.length} matches · {finishedCount} played</span>
                                 </div>
+                                <span class="round-chevron">{collapsed ? '▶' : '▼'}</span>
+                            </button>
 
-                                <div class="lock-status" style="color: {lockStatus.color}">
-                                    {lockStatus.text}
-                                </div>
-
-                                <div class="prediction-info">
-                                    {#if userPrediction}
-                                        <div class="predictions-summary">
-                                            <div class="pred-row">
-                                                <span class="pred-label">Winner:</span>
-                                                <strong class="pred-val">
-                                                    {userPrediction.predictedResult === 'team1' ? match.team1?.name || 'Team 1' : 
-                                                     userPrediction.predictedResult === 'team2' ? match.team2?.name || 'Team 2' : 
-                                                     'Draw'}
-                                                </strong>
+                            {#if !collapsed}
+                                <div class="matches-list">
+                                    {#each group.matches as match (match.id)}
+                                        {@const lockStatus = getLockStatus(match, now)}
+                                        {@const formattedTime = formatBucharestDateTime(new Date(match.kickoff))}
+                                        {@const userPrediction = predictionStore.predictions[match.id]}
+                                        <div class="match-card" class:locked={lockStatus.status === 'locked'} class:live={lockStatus.status === 'live'} class:finished={match.status === 'FINISHED'} class:double-pts={match.doublePoints} class:joker-eligible={match.jokerEligible}>
+                                            {#if match.doublePoints}
+                                                <div class="double-pts-banner">⚡ Double Points Match</div>
+                                            {/if}
+                                            {#if match.jokerEligible}
+                                                <div class="joker-eligible-banner">🃏 Joker Eligible{jokerStatus.used && String(jokerStatus.matchId) === String(match.id) ? ' · Your Joker is on this game' : !jokerStatus.used ? ' · You can play your Joker here' : ''}</div>
+                                            {/if}
+                                            <div class="match-teams">
+                                                <div class="team team-1">
+                                                    {#if match.team1?.crest}
+                                                        <img src={match.team1.crest} alt={match.team1.name} class="team-crest" />
+                                                    {/if}
+                                                    <span class="team-name">{match.team1?.name || 'TBD'}</span>
+                                                </div>
+                                                <div class="vs">VS</div>
+                                                <div class="team team-2">
+                                                    <span class="team-name">{match.team2?.name || 'TBD'}</span>
+                                                    {#if match.team2?.crest}
+                                                        <img src={match.team2.crest} alt={match.team2.name} class="team-crest" />
+                                                    {/if}
+                                                </div>
                                             </div>
-                                            <div class="pred-row">
-                                                <span class="pred-label">Goals:</span>
-                                                <strong class="pred-val">
-                                                    {userPrediction.predictedGoalsTier ? `${userPrediction.predictedGoalsTier} Goals` : 'None'}
-                                                </strong>
+
+                                            <div class="match-details">
+                                                <div class="time-info">
+                                                    <span class="time bucharest">🕒 {formattedTime}</span>
+                                                </div>
+                                                <div class="lock-status" style="color: {lockStatus.color}">
+                                                    {lockStatus.text}
+                                                </div>
+                                                <div class="prediction-info">
+                                                    {#if userPrediction}
+                                                        <div class="predictions-summary">
+                                                            <div class="pred-row">
+                                                                <span class="pred-label">Winner:</span>
+                                                                <strong class="pred-val">
+                                                                    {userPrediction.predictedResult === 'team1' ? match.team1?.name || 'Team 1' :
+                                                                     userPrediction.predictedResult === 'team2' ? match.team2?.name || 'Team 2' :
+                                                                     'Draw'}
+                                                                </strong>
+                                                            </div>
+                                                            <div class="pred-row">
+                                                                <span class="pred-label">Goals:</span>
+                                                                <strong class="pred-val">
+                                                                    {userPrediction.predictedGoalsTier ? `${userPrediction.predictedGoalsTier} Goals` : 'None'}
+                                                                </strong>
+                                                            </div>
+                                                        </div>
+                                                    {:else}
+                                                        <span class="no-prediction">No prediction yet</span>
+                                                    {/if}
+                                                </div>
+                                                {#if lockStatus.status === 'unlocked'}
+                                                    <a href="#/match/{match.id}" class="action-button">
+                                                        {userPrediction ? 'Edit' : 'Predict'}
+                                                    </a>
+                                                {:else}
+                                                    <div class="locked-predictions-indicator">
+                                                        <div class="lock-status-badge">
+                                                            <span class="lock-icon">🔒</span>
+                                                            <span class="lock-text">Locked</span>
+                                                        </div>
+                                                        {#if userPrediction && match.status === 'FINISHED'}
+                                                            <div class="points-earned-badge" class:pts-6={userPrediction.pointsAwarded >= 6} class:pts-3={userPrediction.pointsAwarded > 0 && userPrediction.pointsAwarded < 6} class:pts-0={userPrediction.pointsAwarded === 0}>
+                                                                +{userPrediction.pointsAwarded} pts{match.doublePoints ? ' ⚡' : ''}
+                                                            </div>
+                                                        {/if}
+                                                    </div>
+                                                {/if}
                                             </div>
+
+                                            {#if match.status === 'FINISHED' && match.communityStats?.totalPredictions > 0}
+                                                {@const cs = match.communityStats}
+                                                {@const pct = Math.round((cs.correctResults / cs.totalPredictions) * 100)}
+                                                <div class="community-bar">
+                                                    <span class="cb-icon">🌍</span>
+                                                    <span class="cb-text">
+                                                        <strong>{cs.correctResults}/{cs.totalPredictions}</strong> players correct result
+                                                        <span class="cb-pct">({pct}%)</span>
+                                                    </span>
+                                                    {#if cs.correctGoals > 0}
+                                                        <span class="cb-sep">·</span>
+                                                        <span class="cb-text"><strong>{cs.correctGoals}</strong> correct goals</span>
+                                                    {/if}
+                                                    <span class="cb-dist">
+                                                        <span class="dist-pill">🏠{cs.resultDistribution.team1}</span>
+                                                        <span class="dist-pill">={cs.resultDistribution.draw}</span>
+                                                        <span class="dist-pill">✈️{cs.resultDistribution.team2}</span>
+                                                    </span>
+                                                </div>
+                                            {/if}
                                         </div>
-                                    {:else}
-                                        <span class="no-prediction">No prediction yet</span>
-                                    {/if}
-                                </div>
-
-                                {#if lockStatus.status === 'unlocked'}
-                                    <a href="#/match/{match.id}" class="action-button">
-                                        {userPrediction ? 'Edit' : 'Predict'}
-                                    </a>
-                                {:else}
-                                    <div class="locked-predictions-indicator">
-                                        <div class="lock-status-badge">
-                                            <span class="lock-icon">🔒</span>
-                                            <span class="lock-text">Locked</span>
-                                        </div>
-                                        {#if userPrediction && match.status === 'FINISHED'}
-                                            <div class="points-earned-badge" class:pts-6={userPrediction.pointsAwarded >= 6} class:pts-3={userPrediction.pointsAwarded > 0 && userPrediction.pointsAwarded < 6} class:pts-0={userPrediction.pointsAwarded === 0}>
-                                                +{userPrediction.pointsAwarded} pts{match.doublePoints ? ' ⚡' : ''}
-                                            </div>
-                                        {/if}
-                                    </div>
-                                {/if}
-                            </div>
-
-                            {#if match.status === 'FINISHED' && match.communityStats?.totalPredictions > 0}
-                                {@const cs = match.communityStats}
-                                {@const pct = Math.round((cs.correctResults / cs.totalPredictions) * 100)}
-                                <div class="community-bar">
-                                    <span class="cb-icon">🌍</span>
-                                    <span class="cb-text">
-                                        <strong>{cs.correctResults}/{cs.totalPredictions}</strong> players correct result
-                                        <span class="cb-pct">({pct}%)</span>
-                                    </span>
-                                    {#if cs.correctGoals > 0}
-                                        <span class="cb-sep">·</span>
-                                        <span class="cb-text"><strong>{cs.correctGoals}</strong> correct goals</span>
-                                    {/if}
-                                    <span class="cb-dist">
-                                        <span class="dist-pill">🏠{cs.resultDistribution.team1}</span>
-                                        <span class="dist-pill">={cs.resultDistribution.draw}</span>
-                                        <span class="dist-pill">✈️{cs.resultDistribution.team2}</span>
-                                    </span>
+                                    {/each}
                                 </div>
                             {/if}
                         </div>
                     {/each}
-                </div>
+                {/if}
             {/if}
         </div>
     {:else}
@@ -897,9 +975,62 @@
         color: #fff;
     }
 
-    /* Upcoming Matches Section */
-    .upcoming-section, .predictions-section {
+    /* All Games + Predictions Sections */
+    .all-games-section, .predictions-section {
         margin-bottom: 2rem;
+    }
+
+    /* Filters bar for All Games */
+    .all-games-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.25rem;
+    }
+
+    /* Round section */
+    .round-section {
+        margin-bottom: 0.75rem;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.07);
+    }
+    .round-header {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(255,255,255,0.04);
+        border: none;
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        color: white;
+        text-align: left;
+        transition: background 0.15s;
+        gap: 1rem;
+    }
+    .round-header:hover { background: rgba(255,255,255,0.07); }
+    .round-header.all-done { background: rgba(255,255,255,0.02); }
+    .round-header.all-done .round-label { color: #666; }
+    .round-header-left { display: flex; flex-direction: column; gap: 0.15rem; }
+    .round-label {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--color-primary);
+    }
+    .round-meta {
+        font-size: 0.72rem;
+        color: #666;
+    }
+    .round-chevron {
+        font-size: 0.65rem;
+        color: #555;
+        flex-shrink: 0;
     }
 
     .loading-message,
