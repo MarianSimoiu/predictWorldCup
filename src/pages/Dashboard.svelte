@@ -76,7 +76,7 @@
         if (allGamesView === 'upcoming') {
             matches = matches.filter(m => m.status !== 'FINISHED');
         } else {
-            matches = matches.filter(m => m.status === 'FINISHED').sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff)).slice(0, 8);
+            matches = matches.filter(m => m.status === 'FINISHED').sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff)).slice(0, 4);
         }
 
         if (filterAllJoker)    matches = matches.filter(m => m.jokerEligible);
