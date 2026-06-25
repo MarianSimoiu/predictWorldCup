@@ -168,8 +168,10 @@
 <style>
     .leaderboard-page {
         padding: clamp(0.75rem, 3vw, 2rem);
-        max-width: 800px;
+        max-width: 1100px;
         margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
     }
     h1 {
         text-align: center;
@@ -182,16 +184,16 @@
     .lb-container {
         background: rgba(255,255,255,0.05);
         border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 12px;
+        border-radius: 16px;
         overflow: hidden;
     }
 
-    /* Each row is a 5-column grid on desktop */
+    /* Each row is a 5-column grid — scales up on wide screens */
     .lb-row {
         display: grid;
-        grid-template-columns: 48px 1fr 60px 64px 64px;
+        grid-template-columns: 56px 1fr 80px 80px 80px;
         align-items: center;
-        padding: clamp(0.6rem, 2vw, 0.9rem) clamp(0.75rem, 2.5vw, 1rem);
+        padding: clamp(0.65rem, 2vw, 1rem) clamp(1rem, 3vw, 1.75rem);
         border-bottom: 1px solid rgba(255,255,255,0.05);
         transition: background 0.15s;
     }
@@ -213,21 +215,22 @@
     /* Columns */
     .col-rank {
         text-align: center;
-        font-size: clamp(1rem, 3.5vw, 1.2rem);
+        font-size: clamp(1rem, 3.5vw, 1.3rem);
     }
     .rank-num {
-        font-size: clamp(0.8rem, 2.5vw, 1rem);
+        font-size: clamp(0.85rem, 2.5vw, 1.05rem);
         color: #888;
+        font-weight: 700;
     }
     .col-name {
         display: flex;
         flex-direction: column;
         gap: 0.1rem;
         min-width: 0;
-        padding-right: 0.5rem;
+        padding-right: 0.75rem;
     }
     .username {
-        font-size: clamp(0.82rem, 2.5vw, 0.95rem);
+        font-size: clamp(0.85rem, 2.5vw, 1rem);
         font-weight: 600;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -235,20 +238,37 @@
     }
     .top-3 .username { color: var(--color-accent); }
     .mobile-stats {
-        display: none; /* shown only on mobile */
+        display: none;
         font-size: clamp(0.65rem, 1.8vw, 0.72rem);
         color: #666;
     }
     .col-pts {
-        font-size: clamp(1rem, 3vw, 1.2rem);
+        font-size: clamp(1rem, 3vw, 1.3rem);
         font-weight: 800;
         color: var(--color-primary);
         text-align: center;
     }
     .col-results, .col-goals {
         text-align: center;
-        font-size: clamp(0.85rem, 2.5vw, 1rem);
+        font-size: clamp(0.9rem, 2.5vw, 1.05rem);
         color: #aaa;
+        font-weight: 500;
+    }
+
+    /* Wide screens: more generous spacing */
+    @media (min-width: 900px) {
+        .lb-row {
+            grid-template-columns: 64px 1fr 110px 110px 110px;
+            padding: 1.1rem 2rem;
+        }
+        .lb-header {
+            font-size: 0.82rem;
+        }
+        .username { font-size: 1.05rem; }
+        .col-pts  { font-size: 1.35rem; }
+        .col-results, .col-goals { font-size: 1.05rem; }
+        .rank-num { font-size: 1.05rem; }
+        .col-rank { font-size: 1.35rem; }
     }
 
     /* Tooltip on header */
