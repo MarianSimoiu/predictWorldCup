@@ -134,8 +134,9 @@ try {
             }
             const matchDoc = finishedMatches[prediction.matchId];
             if (matchDoc?.doublePoints) {
-                userScores[uid].doubleTotal += 1;
+                userScores[uid].doubleTotal += 2;
                 if (resultCorrect) userScores[uid].doubleCorrect += 1;
+                if (goalsCorrect) userScores[uid].doubleCorrect += 1;
             }
         }
     });

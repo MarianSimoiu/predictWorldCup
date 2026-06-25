@@ -229,8 +229,9 @@ export async function recalculateAllScores() {
                 userScores[p.userId].jokerCorrect = resultCorrect;
             }
             if (match.doublePoints) {
-                userScores[p.userId].doubleTotal += 1;
+                userScores[p.userId].doubleTotal += 2;
                 if (resultCorrect) userScores[p.userId].doubleCorrect += 1;
+                if (goalsCorrect) userScores[p.userId].doubleCorrect += 1;
             }
 
             // Tally community stats per match

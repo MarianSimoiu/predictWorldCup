@@ -135,7 +135,7 @@
                 </span>
                 <span class="col-double desktop-only">
                     ⚡ Double
-                    <span class="tip" data-tip="Correct predictions on Double Points matches (correct / total)">ℹ️</span>
+                    <span class="tip" data-tip="Correct result + goals predictions on Double Points matches (2 possible per match)">ℹ️</span>
                 </span>
                 <span class="col-joker desktop-only">
                     🃏 Joker
