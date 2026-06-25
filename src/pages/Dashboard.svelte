@@ -99,6 +99,14 @@
                 g.matches.sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff));
             }
         }
+        if (allGamesView === 'finished') {
+            // Sort groups by their most recent game, newest first
+            return Object.values(groups).sort((a, b) => {
+                const latestA = Math.max(...a.matches.map(m => new Date(m.kickoff).getTime()));
+                const latestB = Math.max(...b.matches.map(m => new Date(m.kickoff).getTime()));
+                return latestB - latestA;
+            });
+        }
         return Object.values(groups).sort((a, b) => a.order - b.order);
     });
 
