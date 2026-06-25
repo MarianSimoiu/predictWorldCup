@@ -77,7 +77,7 @@
         if (allGamesView === 'upcoming') {
             matches = matches.filter(m => m.status !== 'FINISHED');
         } else {
-            matches = matches.filter(m => m.status === 'FINISHED').sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff)).slice(0, 8);
+            matches = matches.filter(m => m.status === 'FINISHED').sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff));
         }
 
         if (filterAllJoker)    matches = matches.filter(m => m.jokerEligible);
@@ -463,7 +463,7 @@
                 <div class="all-games-header">
                     <div class="view-toggle">
                         <button class="toggle-btn" class:active={allGamesView === 'upcoming'} onclick={() => allGamesView = 'upcoming'}>📅 Upcoming</button>
-                        <button class="toggle-btn" class:active={allGamesView === 'finished'} onclick={() => allGamesView = 'finished'}>✅ Just Finished</button>
+                        <button class="toggle-btn" class:active={allGamesView === 'finished'} onclick={() => allGamesView = 'finished'}>✅ Played</button>
                     </div>
                     <div class="all-games-filters">
                         <label class="checkbox-container joker-filter" class:active={filterAllJoker}>
