@@ -133,6 +133,14 @@
                     Goals
                     <span class="tip" data-tip="Correct total goals tier predictions (0-1 / 2-3 / 4+)">ℹ️</span>
                 </span>
+                <span class="col-double desktop-only">
+                    ⚡ Double
+                    <span class="tip" data-tip="Correct predictions on Double Points matches (correct / total)">ℹ️</span>
+                </span>
+                <span class="col-joker desktop-only">
+                    🃏 Joker
+                    <span class="tip" data-tip="Points earned from Joker Card prediction">ℹ️</span>
+                </span>
             </div>
 
             {#each filteredLeaderboard as user (user.id)}
@@ -147,14 +155,31 @@
                         <span class="username">
                             {user.displayName || user.email?.split('@')[0] || `User_${user.id.substring(0, 5)}`}
                         </span>
-                        <!-- Mobile sub-line -->
                         <span class="mobile-stats">
-                            ✓ {user.correctPredictions || 0} results · ⚽ {user.correctGoals || 0} goals
+                            ✓ {user.correctPredictions || 0} · ⚽ {user.correctGoals || 0}
+                            {#if user.doubleTotal > 0} · ⚡ {user.doubleCorrect || 0}/{user.doubleTotal}{/if}
+                            {#if user.jokerCorrect !== null && user.jokerCorrect !== undefined} · 🃏 {user.jokerPoints || 0}pts{/if}
                         </span>
                     </div>
                     <div class="col-pts">{user.totalPoints || 0}</div>
                     <div class="col-results desktop-only">{user.correctPredictions || 0}</div>
                     <div class="col-goals desktop-only">{user.correctGoals || 0}</div>
+                    <div class="col-double desktop-only">
+                        {#if user.doubleTotal > 0}
+                            <span class="double-stat">{user.doubleCorrect || 0}<span class="stat-denom">/{user.doubleTotal}</span></span>
+                        {:else}
+                            <span class="stat-na">—</span>
+                        {/if}
+                    </div>
+                    <div class="col-joker desktop-only">
+                        {#if user.jokerCorrect !== null && user.jokerCorrect !== undefined}
+                            <span class="joker-stat" class:joker-good={user.jokerCorrect} class:joker-miss={!user.jokerCorrect}>
+                                {user.jokerPoints || 0}pts
+                            </span>
+                        {:else}
+                            <span class="stat-na">—</span>
+                        {/if}
+                    </div>
                 </div>
             {/each}
 
@@ -188,10 +213,10 @@
         overflow: hidden;
     }
 
-    /* Each row is a 5-column grid — scales up on wide screens */
+    /* Each row: 7-column grid (2 bonus cols hidden on mobile) */
     .lb-row {
         display: grid;
-        grid-template-columns: 56px 1fr 80px 80px 80px;
+        grid-template-columns: 56px 1fr 80px 80px 80px 80px 80px;
         align-items: center;
         padding: clamp(0.65rem, 2vw, 1rem) clamp(1rem, 3vw, 1.75rem);
         border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -255,20 +280,29 @@
         font-weight: 500;
     }
 
+    .col-double, .col-joker {
+        text-align: center;
+        font-size: clamp(0.85rem, 2.5vw, 1rem);
+    }
+    .double-stat { color: #aaa; font-weight: 600; }
+    .stat-denom  { color: #555; font-size: 0.85em; }
+    .stat-na     { color: #444; }
+    .joker-stat  { font-weight: 700; }
+    .joker-good  { color: #4ade80; }
+    .joker-miss  { color: #ef4444; }
+
     /* Wide screens: more generous spacing */
     @media (min-width: 900px) {
         .lb-row {
-            grid-template-columns: 64px 1fr 110px 110px 110px;
+            grid-template-columns: 64px 1fr 100px 90px 90px 90px 90px;
             padding: 1.1rem 2rem;
         }
-        .lb-header {
-            font-size: 0.82rem;
-        }
-        .username { font-size: 1.05rem; }
-        .col-pts  { font-size: 1.35rem; }
-        .col-results, .col-goals { font-size: 1.05rem; }
-        .rank-num { font-size: 1.05rem; }
-        .col-rank { font-size: 1.35rem; }
+        .lb-header { font-size: 0.82rem; }
+        .username  { font-size: 1.05rem; }
+        .col-pts   { font-size: 1.35rem; }
+        .col-results, .col-goals, .col-double, .col-joker { font-size: 1rem; }
+        .rank-num  { font-size: 1.05rem; }
+        .col-rank  { font-size: 1.35rem; }
     }
 
     /* Tooltip on header */
@@ -342,7 +376,16 @@
         color: var(--color-accent);
     }
 
-    /* Mobile: collapse to 3 columns, show sub-line stats */
+    /* Tablet: hide bonus cols, keep results/goals */
+    @media (max-width: 700px) {
+        .lb-row {
+            grid-template-columns: 48px 1fr 70px 64px 64px;
+        }
+        .col-double, .col-joker { display: none; }
+        .mobile-stats { display: none; }
+    }
+
+    /* Mobile: collapse to 3 columns, show full sub-line */
     @media (max-width: 500px) {
         .lb-row {
             grid-template-columns: 36px 1fr 48px;

@@ -123,11 +123,20 @@ try {
             // Accumulate user points
             const uid = prediction.userId;
             if (!userScores[uid]) {
-                userScores[uid] = { totalPoints: 0, correctPredictions: 0, correctGoals: 0 };
+                userScores[uid] = { totalPoints: 0, correctPredictions: 0, correctGoals: 0, jokerPoints: 0, jokerCorrect: null, doubleCorrect: 0, doubleTotal: 0 };
             }
             userScores[uid].totalPoints += points;
             if (resultCorrect) userScores[uid].correctPredictions += 1;
             if (goalsCorrect) userScores[uid].correctGoals += 1;
+            if (prediction.isJoker) {
+                userScores[uid].jokerPoints = points;
+                userScores[uid].jokerCorrect = resultCorrect;
+            }
+            const matchDoc = finishedMatches[prediction.matchId];
+            if (matchDoc?.doublePoints) {
+                userScores[uid].doubleTotal += 1;
+                if (resultCorrect) userScores[uid].doubleCorrect += 1;
+            }
         }
     });
 
@@ -146,6 +155,10 @@ try {
             totalPoints: stats.totalPoints,
             correctPredictions: stats.correctPredictions,
             correctGoals: stats.correctGoals,
+            jokerPoints: stats.jokerPoints,
+            jokerCorrect: stats.jokerCorrect,
+            doubleCorrect: stats.doubleCorrect,
+            doubleTotal: stats.doubleTotal,
             lastUpdated: new Date()
         }, { merge: true });
         

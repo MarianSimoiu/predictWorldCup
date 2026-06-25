@@ -219,11 +219,19 @@ export async function recalculateAllScores() {
 
             // Tally user score
             if (!userScores[p.userId]) {
-                userScores[p.userId] = { totalPoints: 0, correctPredictions: 0, correctGoals: 0 };
+                userScores[p.userId] = { totalPoints: 0, correctPredictions: 0, correctGoals: 0, jokerPoints: 0, jokerCorrect: null, doubleCorrect: 0, doubleTotal: 0 };
             }
             userScores[p.userId].totalPoints += points;
             if (resultCorrect) userScores[p.userId].correctPredictions += 1;
             if (goalsCorrect) userScores[p.userId].correctGoals += 1;
+            if (p.isJoker) {
+                userScores[p.userId].jokerPoints = points;
+                userScores[p.userId].jokerCorrect = resultCorrect;
+            }
+            if (match.doublePoints) {
+                userScores[p.userId].doubleTotal += 1;
+                if (resultCorrect) userScores[p.userId].doubleCorrect += 1;
+            }
 
             // Tally community stats per match
             if (!matchCommunity[p.matchId]) {
@@ -260,6 +268,10 @@ export async function recalculateAllScores() {
             totalPoints: stats.totalPoints,
             correctPredictions: stats.correctPredictions,
             correctGoals: stats.correctGoals,
+            jokerPoints: stats.jokerPoints,
+            jokerCorrect: stats.jokerCorrect,
+            doubleCorrect: stats.doubleCorrect,
+            doubleTotal: stats.doubleTotal,
             lastUpdated: new Date()
         }, { merge: true });
         count++;
