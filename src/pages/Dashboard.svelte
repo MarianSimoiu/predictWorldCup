@@ -515,6 +515,7 @@
                                             {#if match.jokerEligible}
                                                 <div class="joker-eligible-banner">🃏 Joker Eligible{jokerStatus.used && String(jokerStatus.matchId) === String(match.id) ? ' · Your Joker is on this game' : !jokerStatus.used ? ' · You can play your Joker here' : ''}</div>
                                             {/if}
+                                            <div class="match-main-row">
                                             <div class="match-teams">
                                                 <div class="team team-1">
                                                     {#if match.team1?.crest}
@@ -578,6 +579,7 @@
                                                     </div>
                                                 {/if}
                                             </div>
+                                            </div><!-- end match-main-row -->
 
                                             {#if lockStatus.status === 'locked' || match.status === 'LIVE' || match.status === 'FINISHED'}
                                                 <CommunityPredictions
@@ -1296,9 +1298,17 @@
         border-radius: 12px;
         padding: 1.25rem;
         display: flex;
-        gap: 1.5rem;
-        align-items: center;
+        flex-direction: column;
+        gap: 0;
         transition: all 0.2s ease;
+        overflow: hidden;
+    }
+
+    .match-main-row {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        width: 100%;
     }
 
     .match-card:hover {
@@ -1331,7 +1341,8 @@
         color: var(--color-accent);
         font-size: 0.75rem;
         font-weight: 700;
-        padding: 0.35rem 1rem;
+        padding: 0.35rem 1.25rem;
+        margin: -1.25rem -1.25rem 1rem -1.25rem;
         letter-spacing: 0.04em;
         text-transform: uppercase;
     }
@@ -1374,7 +1385,8 @@
         color: #a78bfa;
         font-size: 0.72rem;
         font-weight: 600;
-        padding: 0.3rem 1rem;
+        padding: 0.3rem 1.25rem;
+        margin: -1.25rem -1.25rem 1rem -1.25rem;
         letter-spacing: 0.03em;
     }
 
@@ -1922,7 +1934,7 @@
 
     /* Responsive Design */
     @media (max-width: 1100px) {
-        .match-card {
+        .match-main-row {
             flex-direction: column;
             gap: 1.25rem;
             align-items: stretch;
@@ -1975,6 +1987,14 @@
 
         .match-card {
             padding: 1rem;
+        }
+
+        .double-pts-banner, .joker-eligible-banner {
+            margin-left: -1rem;
+            margin-right: -1rem;
+            margin-top: -1rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
         }
 
         .team-name {
