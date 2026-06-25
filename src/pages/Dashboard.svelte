@@ -76,7 +76,7 @@
         if (allGamesView === 'upcoming') {
             matches = matches.filter(m => m.status !== 'FINISHED');
         } else {
-            matches = matches.filter(m => m.status === 'FINISHED').sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff)).slice(0, 4);
+            matches = matches.filter(m => m.status === 'FINISHED').sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff)).slice(0, 8);
         }
 
         if (filterAllJoker)    matches = matches.filter(m => m.jokerEligible);
@@ -507,7 +507,7 @@
                                                     {/if}
                                                     <span class="team-name">{match.team1?.name || 'TBD'}</span>
                                                 </div>
-                                                <div class="vs">VS</div>
+                                                <div class="vs">{#if match.status === 'FINISHED' && match.score?.team1 !== null && match.score?.team2 !== null}<span class="final-score">{match.score.team1} – {match.score.team2}</span>{:else}VS{/if}</div>
                                                 <div class="team team-2">
                                                     <span class="team-name">{match.team2?.name || 'TBD'}</span>
                                                     {#if match.team2?.crest}
@@ -1485,6 +1485,12 @@
         background: rgba(255, 255, 255, 0.05);
         padding: 0.25rem 0.5rem;
         border-radius: 4px;
+    }
+    .final-score {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: #fff;
+        letter-spacing: 0.04em;
     }
 
     .match-details {
