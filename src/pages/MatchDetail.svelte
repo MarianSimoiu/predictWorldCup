@@ -21,7 +21,7 @@
 </script>
 
 <div class="match-detail">
-    <a href="#/groups" class="back-link">← Back to Groups</a>
+    <button class="back-link" onclick={() => history.back()}>← Back</button>
     
     {#if matchStore.error}
         <ErrorMessage error={matchStore.error} context="Match Detail" />
@@ -77,11 +77,15 @@
         overflow-x: hidden;
     }
     .back-link {
+        background: none;
+        border: none;
+        cursor: pointer;
         color: var(--color-secondary);
         text-decoration: none;
         display: inline-block;
         margin-bottom: 1.5rem;
         font-size: clamp(0.85rem, 2.5vw, 1rem);
+        padding: 0;
     }
     .back-link:hover { text-decoration: underline; }
 
