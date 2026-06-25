@@ -1,6 +1,6 @@
 import { collection, doc, writeBatch, getDocs, getDoc, setDoc, query, orderBy, onSnapshot, where } from 'firebase/firestore';
 import { db } from './firebase.js';
-import { matchStore, predictionStore } from './stores.svelte.js';
+import { matchStore, predictionStore, userStore } from './stores.svelte.js';
 import { calculatePredictionScore } from './scoring.js';
 
 // Convert API match to our Firestore structure
@@ -148,12 +148,15 @@ export async function savePrediction(userId, matchId, predictedResult, predicted
         throw new Error("This match is not eligible for the Joker Card.");
     }
 
+    const displayName = userStore.user?.displayName || userStore.user?.email || null;
+
     await setDoc(docRef, {
         userId,
         matchId: String(matchId),
         predictedResult,
         predictedGoalsTier: predictedGoalsTier || null,
         isJoker: isJoker || false,
+        displayName,
         submittedAt: new Date(),
         pointsAwarded: 0,
         resultCorrect: null,

@@ -4,6 +4,7 @@
     import { doc, onSnapshot, query, collection } from 'firebase/firestore';
     import { db } from '../lib/firebase.js';
     import ErrorMessage from '../components/ErrorMessage.svelte';
+    import CommunityPredictions from '../components/CommunityPredictions.svelte';
     import { CHAMPION_LOCK_DEADLINE, CHAMPION_REOPEN_START, CHAMPION_REOPEN_UNTIL } from '../lib/config.js';
 
     let userStats = $state({ totalPoints: 0, correctPredictions: 0, correctGoals: 0, winnerPrediction: null, rank: '-' });
@@ -440,6 +441,12 @@
                         {:else}
                             <div class="live-pred-row live-no-pick">No prediction placed</div>
                         {/if}
+                        <CommunityPredictions
+                            matchId={match.id}
+                            team1Name={match.team1?.name || 'Team 1'}
+                            team2Name={match.team2?.name || 'Team 2'}
+                            isFinished={false}
+                        />
                     </div>
                 {/each}
             </div>
@@ -564,25 +571,13 @@
                                                 {/if}
                                             </div>
 
-                                            {#if match.status === 'FINISHED' && match.communityStats?.totalPredictions > 0}
-                                                {@const cs = match.communityStats}
-                                                {@const pct = Math.round((cs.correctResults / cs.totalPredictions) * 100)}
-                                                <div class="community-bar">
-                                                    <span class="cb-icon">🌍</span>
-                                                    <span class="cb-text">
-                                                        <strong>{cs.correctResults}/{cs.totalPredictions}</strong> players correct result
-                                                        <span class="cb-pct">({pct}%)</span>
-                                                    </span>
-                                                    {#if cs.correctGoals > 0}
-                                                        <span class="cb-sep">·</span>
-                                                        <span class="cb-text"><strong>{cs.correctGoals}</strong> correct goals</span>
-                                                    {/if}
-                                                    <span class="cb-dist">
-                                                        <span class="dist-pill">🏠{cs.resultDistribution.team1}</span>
-                                                        <span class="dist-pill">={cs.resultDistribution.draw}</span>
-                                                        <span class="dist-pill">✈️{cs.resultDistribution.team2}</span>
-                                                    </span>
-                                                </div>
+                                            {#if lockStatus.status === 'locked' || match.status === 'LIVE' || match.status === 'FINISHED'}
+                                                <CommunityPredictions
+                                                    matchId={match.id}
+                                                    team1Name={match.team1?.name || 'Team 1'}
+                                                    team2Name={match.team2?.name || 'Team 2'}
+                                                    isFinished={match.status === 'FINISHED'}
+                                                />
                                             {/if}
                                         </div>
                                     {/each}
