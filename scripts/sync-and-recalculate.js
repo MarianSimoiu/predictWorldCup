@@ -90,7 +90,9 @@ try {
         if (!data.predictionsScored) hasUnscored = true;
     });
 
-    if (!hasUnscored) {
+    const forceRecalculate = process.env.FORCE_RECALCULATE === 'true';
+
+    if (!hasUnscored && !forceRecalculate) {
         console.log('All finished matches already scored — skipping prediction recalculation.');
         await db.collection('system').doc('status').set({
             lastSync: new Date(),
@@ -102,7 +104,11 @@ try {
         process.exit(0);
     }
 
-    console.log(`Found unscored finished matches. Running full recalculation...`);
+    if (forceRecalculate) {
+        console.log('FORCE_RECALCULATE=true — running full recalculation regardless of scored flags.');
+    } else {
+        console.log('Found unscored finished matches. Running full recalculation...');
+    }
 
     // Retrieve all predictions
     const predictionsSnapshot = await db.collection('predictions').get();

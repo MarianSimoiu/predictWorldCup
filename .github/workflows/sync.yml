@@ -3,7 +3,12 @@ name: Sync Matches & Recalculate Scores
 on:
   schedule:
     - cron: '0 * * * *'   # every hour
-  workflow_dispatch:        # manual trigger from GitHub UI or API
+  workflow_dispatch:
+    inputs:
+      force_recalculate:
+        description: 'Force full score recalculation (ignore predictionsScored flags)'
+        type: boolean
+        default: false
 
 jobs:
   sync:
@@ -22,4 +27,5 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+          FORCE_RECALCULATE: ${{ github.event.inputs.force_recalculate }}
         run: node scripts/sync-and-recalculate.js
