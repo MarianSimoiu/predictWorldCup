@@ -80,12 +80,29 @@ try {
     // 4. Recalculate Scores
     console.log("Recalculating predictions and user standings...");
 
-    // Create a map of finished matches for quick scoring lookups
+    // Create a map of finished matches; detect any that haven't been scored yet
     const finishedMatches = {};
+    let hasUnscored = false;
     const matchesSnapshot = await matchesCollection.where('status', '==', 'FINISHED').get();
     matchesSnapshot.forEach(docSnap => {
-        finishedMatches[docSnap.id] = docSnap.data();
+        const data = docSnap.data();
+        finishedMatches[docSnap.id] = data;
+        if (!data.predictionsScored) hasUnscored = true;
     });
+
+    if (!hasUnscored) {
+        console.log('All finished matches already scored — skipping prediction recalculation.');
+        await db.collection('system').doc('status').set({
+            lastSync: new Date(),
+            status: 'success',
+            matchesSyncedCount: apiMatches.length,
+            error: null
+        }, { merge: true });
+        console.log("Synchronization completed successfully (no new results to score).");
+        process.exit(0);
+    }
+
+    console.log(`Found unscored finished matches. Running full recalculation...`);
 
     // Retrieve all predictions
     const predictionsSnapshot = await db.collection('predictions').get();
@@ -174,6 +191,14 @@ try {
         await batch.commit();
     }
     console.log(`Updated standings for ${userCount} users.`);
+
+    // Mark all finished matches as scored so future runs skip recalculation
+    batch = db.batch();
+    for (const matchId of Object.keys(finishedMatches)) {
+        batch.update(matchesCollection.doc(matchId), { predictionsScored: true });
+    }
+    await batch.commit();
+    console.log(`Marked ${Object.keys(finishedMatches).length} finished matches as scored.`);
 
     // 5. Update system status metadata doc
     await db.collection('system').doc('status').set({
