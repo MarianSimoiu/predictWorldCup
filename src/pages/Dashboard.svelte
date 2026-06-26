@@ -692,21 +692,21 @@
                                     <div class="bets-summary">
                                         <div class="bet-item">
                                             <span class="bet-label">Winner Choice:</span>
-                                            <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.resultCorrect} class:incorrect={match.status === 'FINISHED' && pred.resultCorrect === false}>
-                                                {pred.predictedResult === 'team1' ? match.team1?.name : 
-                                                 pred.predictedResult === 'team2' ? match.team2?.name : 
+                                            <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.resultCorrect === true} class:incorrect={match.status === 'FINISHED' && pred.resultCorrect === false}>
+                                                {pred.predictedResult === 'team1' ? match.team1?.name :
+                                                 pred.predictedResult === 'team2' ? match.team2?.name :
                                                  'Draw'}
                                                 {#if match.status === 'FINISHED'}
-                                                    {pred.resultCorrect ? '✅' : '❌'}
+                                                    {pred.resultCorrect === true ? '✅' : pred.resultCorrect === false ? '❌' : '⏳'}
                                                 {/if}
                                             </span>
                                         </div>
                                         <div class="bet-item">
                                             <span class="bet-label">Goals Choice:</span>
-                                            <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.goalsCorrect} class:incorrect={match.status === 'FINISHED' && pred.goalsCorrect === false}>
+                                            <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.goalsCorrect === true} class:incorrect={match.status === 'FINISHED' && pred.goalsCorrect === false}>
                                                 {pred.predictedGoalsTier ? `${pred.predictedGoalsTier} Goals` : 'None'}
                                                 {#if match.status === 'FINISHED' && pred.predictedGoalsTier}
-                                                    {pred.goalsCorrect ? '✅' : '❌'}
+                                                    {pred.goalsCorrect === true ? '✅' : pred.goalsCorrect === false ? '❌' : '⏳'}
                                                 {/if}
                                             </span>
                                         </div>
@@ -714,10 +714,17 @@
 
                                     <div class="points-summary">
                                         {#if match.status === 'FINISHED'}
-                                            <div class="points-display" class:pts-perfect={pred.pointsAwarded === 6} class:pts-partial={pred.pointsAwarded === 3} class:pts-zero={pred.pointsAwarded === 0}>
+                                            {#if pred.resultCorrect === null}
+                                                <div class="points-display pts-pending">
+                                                    <span class="pts-val">⏳</span>
+                                                    <span class="pts-lbl">pending</span>
+                                                </div>
+                                            {:else}
+                                            <div class="points-display" class:pts-perfect={pred.pointsAwarded >= 6} class:pts-partial={pred.pointsAwarded > 0 && pred.pointsAwarded < 6} class:pts-zero={pred.pointsAwarded === 0}>
                                                 <span class="pts-val">+{pred.pointsAwarded}</span>
                                                 <span class="pts-lbl">pts</span>
                                             </div>
+                                            {/if}
                                         {:else if match.status === 'LIVE'}
                                             <div class="status-badge live">LIVE</div>
                                         {:else}
@@ -1893,6 +1900,12 @@
         background: rgba(239, 68, 68, 0.1);
         color: #94a3b8;
         border: 1px solid rgba(239, 68, 68, 0.15);
+    }
+
+    .pts-pending {
+        background: rgba(255,255,255,0.04);
+        color: #666;
+        border: 1px solid rgba(255,255,255,0.08);
     }
 
     .pts-val {
