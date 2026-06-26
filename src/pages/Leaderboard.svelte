@@ -10,7 +10,10 @@
     let error = $state(null);
 
     let lastSyncTime = $state(null);
+    let syncStatus = $state('success');
     let timeRemainingStr = $state('');
+
+    let syncFailed = $derived(syncStatus === 'failed');
 
     let filteredLeaderboard = $derived(leaderboard.map((user, i) => ({ ...user, rank: i + 1 })));
 
@@ -23,9 +26,8 @@
         const unsubscribeStatus = onSnapshot(doc(db, 'system', 'status'), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                if (data.lastSync) {
-                    lastSyncTime = data.lastSync.toDate();
-                }
+                if (data.lastSync) lastSyncTime = data.lastSync.toDate();
+                if (data.status) syncStatus = data.status;
             }
         });
 
@@ -33,12 +35,12 @@
     });
 
     $effect(() => {
+        if (syncFailed) return;
         const updateCountdown = () => {
             const now = new Date();
             const nextHour = new Date(now);
             nextHour.setHours(now.getHours() + 1, 0, 0, 0);
             const diffMs = nextHour.getTime() - now.getTime();
-            
             const mins = Math.floor(diffMs / 60000);
             const secs = Math.floor((diffMs % 60000) / 1000);
             timeRemainingStr = `${mins}m ${secs.toString().padStart(2, '0')}s`;
@@ -95,16 +97,19 @@
 <div class="leaderboard-page">
     <h1>🏆 Leaderboard</h1>
 
-    {#if lastSyncTime || timeRemainingStr}
-        <div class="sync-banner">
-            {#if lastSyncTime}
+    {#if lastSyncTime}
+        <div class="sync-banner" class:sync-banner-paused={syncFailed}>
+            <div class="sync-banner-item">
+                <span class="dot" class:pulse-success={!syncFailed} class:dot-paused={syncFailed}>●</span>
+                <span class="label">Last updated:</span>
+                <span class="value">{lastSyncTime.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} at {lastSyncTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+            {#if syncFailed}
                 <div class="sync-banner-item">
-                    <span class="dot pulse-success">●</span>
-                    <span class="label">Last updated:</span>
-                    <span class="value">{lastSyncTime.toLocaleTimeString()}</span>
+                    <span class="dot dot-paused">●</span>
+                    <span class="label paused-label">Scores paused — update coming soon</span>
                 </div>
-            {/if}
-            {#if timeRemainingStr}
+            {:else if timeRemainingStr}
                 <div class="sync-banner-item">
                     <span class="dot pulse-accent">●</span>
                     <span class="label">Next update in:</span>
@@ -369,7 +374,13 @@
     .sync-banner-item .dot { font-size: 0.75rem; }
     .dot.pulse-success { color: var(--color-success); animation: pulse 2s infinite; }
     .dot.pulse-accent  { color: var(--color-accent);  animation: pulse 1s infinite; }
+    .dot.dot-paused    { color: #888; }
+    .sync-banner-paused {
+        border-color: rgba(255,255,255,0.05);
+        background: rgba(255,255,255,0.02);
+    }
     .sync-banner-item .label { color: #888; }
+    .sync-banner-item .paused-label { color: #666; font-style: italic; }
     .sync-banner-item .value { color: white; font-weight: 600; }
     .sync-banner-item .value.countdown {
         font-family: monospace;
