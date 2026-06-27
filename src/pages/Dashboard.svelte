@@ -20,6 +20,18 @@
         return () => clearInterval(interval);
     });
 
+    // Check if there are any finished games with unscored predictions
+    let hasUnscoredFinishedGames = $derived.by(() => {
+        if (matchStore.loading || predictionStore.loading) return false;
+        return matchStore.matches.some(m =>
+            m.status === 'FINISHED' &&
+            userPredictionsList.some(p =>
+                p.match.id === m.id &&
+                (p.prediction.resultCorrect === null || (p.prediction.predictedGoalsTier && p.prediction.goalsCorrect === null))
+            )
+        );
+    });
+
     let inReopenWindow = $derived(now >= CHAMPION_REOPEN_START && now < CHAMPION_REOPEN_UNTIL);
     let championCountdown = $derived.by(() => {
         if (inReopenWindow) {
@@ -392,6 +404,14 @@
             🔮 My Predictions ({predictionStore.loading ? '...' : userPredictionsList.length})
         </button>
     </div>
+
+    <!-- Warning Banner for Unscored Games -->
+    {#if hasUnscoredFinishedGames}
+        <div class="warning-banner">
+            <span class="warning-icon">⚠️</span>
+            <span class="warning-text">Points not computed yet for some finished games. They will be calculated with the daily sync.</span>
+        </div>
+    {/if}
 
     <!-- Tab Contents -->
     {#if activeTab === 'live'}
@@ -1943,6 +1963,28 @@
         0% { opacity: 1; }
         50% { opacity: 0.6; }
         100% { opacity: 1; }
+    }
+
+    .warning-banner {
+        background: rgba(251, 191, 36, 0.1);
+        border: 1px solid rgba(251, 191, 36, 0.3);
+        color: #fbbf24;
+        padding: 1rem;
+        margin: 1rem 0;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.95rem;
+    }
+
+    .warning-icon {
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+
+    .warning-text {
+        flex: 1;
     }
 
     /* Responsive Design */
