@@ -38,12 +38,19 @@
         if (syncFailed) return;
         const updateCountdown = () => {
             const now = new Date();
-            const nextHour = new Date(now);
-            nextHour.setHours(now.getHours() + 1, 0, 0, 0);
-            const diffMs = nextHour.getTime() - now.getTime();
-            const mins = Math.floor(diffMs / 60000);
+            const next9AM = new Date(now);
+            next9AM.setHours(9, 0, 0, 0); // 9 AM (UTC+2)
+
+            // If it's already past 9 AM today, next sync is tomorrow at 9 AM
+            if (now >= next9AM) {
+                next9AM.setDate(next9AM.getDate() + 1);
+            }
+
+            const diffMs = next9AM.getTime() - now.getTime();
+            const hours = Math.floor(diffMs / 3600000);
+            const mins = Math.floor((diffMs % 3600000) / 60000);
             const secs = Math.floor((diffMs % 60000) / 1000);
-            timeRemainingStr = `${mins}m ${secs.toString().padStart(2, '0')}s`;
+            timeRemainingStr = `${hours}h ${mins}m ${secs.toString().padStart(2, '0')}s`;
         };
 
         updateCountdown();
@@ -98,11 +105,17 @@
     <h1>🏆 Leaderboard</h1>
 
     {#if lastSyncTime}
+        {@const today = new Date();
+         const yesterday = new Date(today);
+         yesterday.setDate(yesterday.getDate() - 1);
+         const isYesterday = lastSyncTime.toDateString() === yesterday.toDateString();
+         const dateLabel = isYesterday ? 'Yesterday' : lastSyncTime.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        }
         <div class="sync-banner" class:sync-banner-paused={syncFailed}>
             <div class="sync-banner-item">
                 <span class="dot" class:pulse-success={!syncFailed} class:dot-paused={syncFailed}>●</span>
                 <span class="label">Last updated:</span>
-                <span class="value">{lastSyncTime.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} at {lastSyncTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+                <span class="value">{dateLabel} at {lastSyncTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
             {#if syncFailed}
                 <div class="sync-banner-item">
@@ -112,7 +125,7 @@
             {:else if timeRemainingStr}
                 <div class="sync-banner-item">
                     <span class="dot pulse-accent">●</span>
-                    <span class="label">Next update in:</span>
+                    <span class="label">Next update tomorrow at 09:00:</span>
                     <span class="value countdown">{timeRemainingStr}</span>
                 </div>
             {/if}
