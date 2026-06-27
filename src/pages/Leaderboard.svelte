@@ -38,15 +38,15 @@
         if (syncFailed) return;
         const updateCountdown = () => {
             const now = new Date();
-            const next9AM = new Date(now);
-            next9AM.setHours(9, 0, 0, 0); // 9 AM (UTC+2)
+            const next10AM = new Date(now);
+            next10AM.setHours(10, 0, 0, 0); // 10 AM (UTC+2)
 
-            // If it's already past 9 AM today, next sync is tomorrow at 9 AM
-            if (now >= next9AM) {
-                next9AM.setDate(next9AM.getDate() + 1);
+            // If it's already past 10 AM today, next sync is tomorrow at 10 AM
+            if (now >= next10AM) {
+                next10AM.setDate(next10AM.getDate() + 1);
             }
 
-            const diffMs = next9AM.getTime() - now.getTime();
+            const diffMs = next10AM.getTime() - now.getTime();
             const hours = Math.floor(diffMs / 3600000);
             const mins = Math.floor((diffMs % 3600000) / 60000);
             const secs = Math.floor((diffMs % 60000) / 1000);
@@ -125,7 +125,7 @@
             {:else if timeRemainingStr}
                 <div class="sync-banner-item">
                     <span class="dot pulse-accent">●</span>
-                    <span class="label">Next update tomorrow at 09:00:</span>
+                    <span class="label">Next update tomorrow at 10:00:</span>
                     <span class="value countdown">{timeRemainingStr}</span>
                 </div>
             {/if}
