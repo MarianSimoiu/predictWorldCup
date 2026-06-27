@@ -2,7 +2,7 @@ name: Sync Matches & Recalculate Scores
 
 on:
   schedule:
-    - cron: '0 * * * *'   # every hour
+    - cron: '0 7 * * *'   # once daily at 09:00 UTC+2 (07:00 UTC)
   workflow_dispatch:
     inputs:
       force_recalculate:
