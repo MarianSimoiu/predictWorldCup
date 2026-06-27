@@ -1,4 +1,5 @@
 name: Sync Matches & Recalculate Scores
+# Daily sync at 10:00 UTC+2 only
 
 on:
   schedule:
