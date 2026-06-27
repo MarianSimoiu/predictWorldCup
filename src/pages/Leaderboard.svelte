@@ -15,6 +15,15 @@
 
     let syncFailed = $derived(syncStatus === 'failed');
 
+    let lastSyncDateLabel = $derived.by(() => {
+        if (!lastSyncTime) return '';
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const isYesterday = lastSyncTime.toDateString() === yesterday.toDateString();
+        return isYesterday ? 'Yesterday' : lastSyncTime.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    });
+
     let filteredLeaderboard = $derived(leaderboard.map((user, i) => ({ ...user, rank: i + 1 })));
 
     $effect(() => {
@@ -105,17 +114,11 @@
     <h1>🏆 Leaderboard</h1>
 
     {#if lastSyncTime}
-        {@const today = new Date();
-         const yesterday = new Date(today);
-         yesterday.setDate(yesterday.getDate() - 1);
-         const isYesterday = lastSyncTime.toDateString() === yesterday.toDateString();
-         const dateLabel = isYesterday ? 'Yesterday' : lastSyncTime.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-        }
         <div class="sync-banner" class:sync-banner-paused={syncFailed}>
             <div class="sync-banner-item">
                 <span class="dot" class:pulse-success={!syncFailed} class:dot-paused={syncFailed}>●</span>
                 <span class="label">Last updated:</span>
-                <span class="value">{dateLabel} at {lastSyncTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+                <span class="value">{lastSyncDateLabel} at {lastSyncTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
             {#if syncFailed}
                 <div class="sync-banner-item">
