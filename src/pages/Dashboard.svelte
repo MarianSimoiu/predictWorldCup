@@ -714,7 +714,7 @@
 
                                     <div class="points-summary">
                                         {#if match.status === 'FINISHED'}
-                                            {#if pred.resultCorrect === null}
+                                            {#if pred.resultCorrect === null || pred.pointsAwarded === null || pred.pointsAwarded === undefined}
                                                 <div class="points-display pts-pending">
                                                     <span class="pts-val">⏳</span>
                                                     <span class="pts-lbl">pending</span>
