@@ -717,7 +717,7 @@
                                             {#if pred.resultCorrect === null || (pred.predictedGoalsTier && pred.goalsCorrect === null)}
                                                 <div class="points-display pts-pending">
                                                     <span class="pts-val">⏳</span>
-                                                    <span class="pts-lbl">syncing...</span>
+                                                    <span class="pts-lbl">points pending</span>
                                                 </div>
                                             {:else}
                                             <div class="points-display" class:pts-perfect={pred.pointsAwarded >= 6} class:pts-partial={pred.pointsAwarded > 0 && pred.pointsAwarded < 6} class:pts-zero={pred.pointsAwarded === 0}>
