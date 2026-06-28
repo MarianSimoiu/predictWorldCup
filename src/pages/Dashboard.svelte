@@ -144,42 +144,24 @@
             });
         }
 
-        // For upcoming: sort by explicit stage order (GROUP_STAGE < RO32 < RO16 < QF < SF < FINAL)
-        const stageOrderMap = new Map([
-            ['GROUP_STAGE', 0],
-            ['ROUND_OF_32', 1],
-            ['ROUND_OF_16', 2],
-            ['QUARTER_FINALS', 3],
-            ['SEMI_FINALS', 4],
-            ['THIRD_PLACE', 4.5],
-            ['FINAL', 5]
+        // For upcoming: sort by explicit label order (not stage, since stage names vary)
+        const labelOrder = new Map([
+            ['Group Stage — Round 1', 0],
+            ['Group Stage — Round 2', 1],
+            ['Group Stage — Round 3', 2],
+            ['Round of 32', 3],
+            ['Round of 16', 4],
+            ['Quarter Finals', 5],
+            ['Semi Finals', 6],
+            ['Third Place Playoff', 7],
+            ['Final', 8]
         ]);
 
-        // Debug: log what we have
-        console.log('[DEBUG] Groups before sort:', groupArray.map(g => {
-            const stage = g.matches[0]?.stage;
-            const order = stageOrderMap.get(stage) ?? 99;
-            return { label: g.label, stage, order };
-        }));
-
-        const sorted = groupArray.sort((a, b) => {
-            const stageA = a.matches[0]?.stage;
-            const stageB = b.matches[0]?.stage;
-            const orderA = stageOrderMap.get(stageA) ?? 99;
-            const orderB = stageOrderMap.get(stageB) ?? 99;
-
-            const result = orderA - orderB;
-            console.log(`[SORT] "${stageA}"(${orderA}) vs "${stageB}"(${orderB}) = ${result}`);
-            return result;
+        return groupArray.sort((a, b) => {
+            const orderA = labelOrder.get(a.label) ?? 99;
+            const orderB = labelOrder.get(b.label) ?? 99;
+            return orderA - orderB;
         });
-
-        console.log('[DEBUG] Groups after sort:', sorted.map(g => {
-            const stage = g.matches[0]?.stage;
-            const order = stageOrderMap.get(stage) ?? 99;
-            return { label: g.label, stage, order };
-        }));
-
-        return sorted;
     });
 
     function isSectionCollapsed(label, allFinished) {
