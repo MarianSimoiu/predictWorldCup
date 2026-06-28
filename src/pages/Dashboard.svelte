@@ -85,48 +85,79 @@
 
     let allGamesGrouped = $derived.by(() => {
         if (matchStore.loading) return [];
-        let matches = [...matchStore.matches];
 
-        if (allGamesView === 'upcoming') {
-            matches = matches.filter(m => m.status !== 'FINISHED');
-        } else {
-            matches = matches.filter(m => m.status === 'FINISHED').sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff));
-        }
+        // 1. Filter matches by view type
+        let matches = allGamesView === 'upcoming'
+            ? matchStore.matches.filter(m => m.status !== 'FINISHED')
+            : matchStore.matches.filter(m => m.status === 'FINISHED');
 
-        if (filterAllJoker)    matches = matches.filter(m => m.jokerEligible);
-        if (filterAllDouble)   matches = matches.filter(m => m.doublePoints);
+        // 2. Apply additional filters
+        if (filterAllJoker) matches = matches.filter(m => m.jokerEligible);
+        if (filterAllDouble) matches = matches.filter(m => m.doublePoints);
 
-        const groupsMap = new Map();
-        for (const m of matches) {
-            const label = getRoundLabel(m);
-            const order = getRoundOrder(m);
-            if (!groupsMap.has(label)) groupsMap.set(label, { label, order, matches: [], allFinished: true });
-            const group = groupsMap.get(label);
-            group.matches.push(m);
-            if (m.status !== 'FINISHED') group.allFinished = false;
-        }
+        // 3. Create groups Map
+        const groups = new Map();
+        for (const match of matches) {
+            const label = getRoundLabel(match);
+            const order = getRoundOrder(match);
 
-        // Sort matches within each group by date
-        for (const g of groupsMap.values()) {
-            if (allGamesView === 'upcoming') {
-                g.matches.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
-            } else {
-                g.matches.sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff));
+            if (!groups.has(label)) {
+                groups.set(label, {
+                    label,
+                    order,
+                    matches: [],
+                    allFinished: match.status === 'FINISHED'
+                });
+            }
+
+            const group = groups.get(label);
+            group.matches.push(match);
+            if (match.status !== 'FINISHED') {
+                group.allFinished = false;
             }
         }
 
-        // Convert to array and sort groups
-        const groupArray = Array.from(groupsMap.values());
+        // 4. Sort matches within groups
+        for (const group of groups.values()) {
+            const isUpcoming = allGamesView === 'upcoming';
+            group.matches.sort((a, b) =>
+                isUpcoming
+                    ? new Date(a.kickoff) - new Date(b.kickoff)  // earliest first for upcoming
+                    : new Date(b.kickoff) - new Date(a.kickoff)  // latest first for finished
+            );
+        }
+
+        // 5. Convert to array and sort groups by appropriate criteria
+        const groupArray = Array.from(groups.values());
+
         if (allGamesView === 'finished') {
-            // Sort groups by their most recent game, newest first
+            // Sort by most recent match in each group
             return groupArray.sort((a, b) => {
-                const latestA = Math.max(...a.matches.map(m => new Date(m.kickoff).getTime()));
-                const latestB = Math.max(...b.matches.map(m => new Date(m.kickoff).getTime()));
-                return latestB - latestA;
+                const maxA = Math.max(...a.matches.map(m => new Date(m.kickoff).getTime()));
+                const maxB = Math.max(...b.matches.map(m => new Date(m.kickoff).getTime()));
+                return maxB - maxA;  // newest first
             });
         }
-        // For upcoming, sort by stage order (Round of 16 → Quarters → Semis → Final)
-        return groupArray.sort((a, b) => a.order - b.order);
+
+        // For upcoming: sort by explicit stage order (GROUP_STAGE < RO32 < RO16 < QF < SF < FINAL)
+        const stageOrder = {
+            'GROUP_STAGE': 0,
+            'ROUND_OF_32': 1,
+            'ROUND_OF_16': 2,
+            'QUARTER_FINALS': 3,
+            'SEMI_FINALS': 4,
+            'THIRD_PLACE': 4.5,
+            'FINAL': 5
+        };
+
+        return groupArray.sort((a, b) => {
+            // Extract stage from first match in group to determine order
+            const stageA = a.matches[0]?.stage;
+            const stageB = b.matches[0]?.stage;
+            const orderA = stageOrder[stageA] ?? 99;
+            const orderB = stageOrder[stageB] ?? 99;
+            return orderA - orderB;
+        });
     });
 
     function isSectionCollapsed(label, allFinished) {
