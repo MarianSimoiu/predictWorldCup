@@ -130,6 +130,11 @@
         // 5. Convert to array and sort groups by appropriate criteria
         const groupArray = Array.from(groups.values());
 
+        // Debug: log all groups with their stages
+        if (allGamesView === 'upcoming') {
+            console.log('[GROUPS BEFORE SORT]', groupArray.map(g => `${g.label} (stage: "${g.matches[0]?.stage}")`).join(' | '));
+        }
+
         if (allGamesView === 'finished') {
             // Sort by most recent match in each group
             return groupArray.sort((a, b) => {
@@ -140,24 +145,41 @@
         }
 
         // For upcoming: sort by explicit stage order (GROUP_STAGE < RO32 < RO16 < QF < SF < FINAL)
-        const stageOrder = {
-            'GROUP_STAGE': 0,
-            'ROUND_OF_32': 1,
-            'ROUND_OF_16': 2,
-            'QUARTER_FINALS': 3,
-            'SEMI_FINALS': 4,
-            'THIRD_PLACE': 4.5,
-            'FINAL': 5
-        };
+        const stageOrderMap = new Map([
+            ['GROUP_STAGE', 0],
+            ['ROUND_OF_32', 1],
+            ['ROUND_OF_16', 2],
+            ['QUARTER_FINALS', 3],
+            ['SEMI_FINALS', 4],
+            ['THIRD_PLACE', 4.5],
+            ['FINAL', 5]
+        ]);
 
-        return groupArray.sort((a, b) => {
-            // Extract stage from first match in group to determine order
+        // Debug: log what we have
+        console.log('[DEBUG] Groups before sort:', groupArray.map(g => {
+            const stage = g.matches[0]?.stage;
+            const order = stageOrderMap.get(stage) ?? 99;
+            return { label: g.label, stage, order };
+        }));
+
+        const sorted = groupArray.sort((a, b) => {
             const stageA = a.matches[0]?.stage;
             const stageB = b.matches[0]?.stage;
-            const orderA = stageOrder[stageA] ?? 99;
-            const orderB = stageOrder[stageB] ?? 99;
-            return orderA - orderB;
+            const orderA = stageOrderMap.get(stageA) ?? 99;
+            const orderB = stageOrderMap.get(stageB) ?? 99;
+
+            const result = orderA - orderB;
+            console.log(`[SORT] "${stageA}"(${orderA}) vs "${stageB}"(${orderB}) = ${result}`);
+            return result;
         });
+
+        console.log('[DEBUG] Groups after sort:', sorted.map(g => {
+            const stage = g.matches[0]?.stage;
+            const order = stageOrderMap.get(stage) ?? 99;
+            return { label: g.label, stage, order };
+        }));
+
+        return sorted;
     });
 
     function isSectionCollapsed(label, allFinished) {
