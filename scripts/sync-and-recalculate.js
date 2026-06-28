@@ -54,40 +54,56 @@ try {
     const apiMatches = data.matches;
     console.log(`Successfully fetched ${apiMatches.length} matches from the API.`);
 
-    // 3. Format and Sync matches to Firestore
+    // 3. Format and Sync matches to Firestore — only write docs that changed
     console.log("Starting matches sync to Firestore...");
     const matchesCollection = db.collection('matches');
+
+    // Pre-fetch all existing match docs (used both for change detection and scoring below)
+    const existingMatchesSnap = await matchesCollection.get();
+    const existingMatchesMap = {};
+    existingMatchesSnap.forEach(doc => { existingMatchesMap[doc.id] = doc.data(); });
+
     let syncCount = 0;
     let batch = db.batch();
 
     for (const match of apiMatches) {
-        const docRef = matchesCollection.doc(String(match.id));
         const formatted = formatMatchForDb(match);
-        batch.set(docRef, formatted, { merge: true });
-        syncCount++;
-        
-        if (syncCount % 400 === 0) {
-            await batch.commit();
-            batch = db.batch();
+        const existing = existingMatchesMap[formatted.id];
+
+        if (hasMatchChanged(existing, formatted)) {
+            const docRef = matchesCollection.doc(formatted.id);
+            // If the score changed on an already-scored match, clear the flag so it gets re-scored
+            const scoreChanged = existing && existing.predictionsScored && (
+                existing.actualResult !== formatted.actualResult ||
+                existing.actualTotalGoals !== formatted.actualTotalGoals
+            );
+            batch.set(docRef, scoreChanged
+                ? { ...formatted, predictionsScored: false }
+                : formatted,
+                { merge: true });
+            syncCount++;
+            if (syncCount % 400 === 0) { await batch.commit(); batch = db.batch(); }
         }
     }
-    
-    if (syncCount % 400 !== 0) {
-        await batch.commit();
-    }
-    console.log(`Synced ${syncCount} matches to DB.`);
+
+    if (syncCount > 0 && syncCount % 400 !== 0) await batch.commit();
+    console.log(`Synced ${syncCount}/${apiMatches.length} changed matches to DB (${apiMatches.length - syncCount} unchanged, skipped).`);
 
     // 4. Recalculate Scores
     console.log("Recalculating predictions and user standings...");
 
-    // Create a map of finished matches; detect any that haven't been scored yet
+    // Build finished-matches map from already-fetched data (saves an extra Firestore read)
     const finishedMatches = {};
     let hasUnscored = false;
-    const matchesSnapshot = await matchesCollection.where('status', '==', 'FINISHED').get();
-    matchesSnapshot.forEach(docSnap => {
+    existingMatchesSnap.forEach(docSnap => {
         const data = docSnap.data();
-        finishedMatches[docSnap.id] = data;
-        if (!data.predictionsScored) hasUnscored = true;
+        // Use freshly synced status where available
+        const matchedApi = apiMatches.find(m => String(m.id) === docSnap.id);
+        const status = matchedApi ? matchedApi.status : data.status;
+        if (status === 'FINISHED') {
+            finishedMatches[docSnap.id] = { ...data, status };
+            if (!data.predictionsScored) hasUnscored = true;
+        }
     });
 
     const forceRecalculate = process.env.FORCE_RECALCULATE === 'true';
@@ -232,6 +248,22 @@ try {
     }
     
     process.exit(1);
+}
+
+// Returns true if the API-formatted match differs from the stored doc in any meaningful way
+function hasMatchChanged(existing, formatted) {
+    if (!existing) return true;
+    return (
+        existing.status !== formatted.status ||
+        existing.actualResult !== formatted.actualResult ||
+        existing.actualTotalGoals !== formatted.actualTotalGoals ||
+        existing.score?.team1 !== formatted.score?.team1 ||
+        existing.score?.team2 !== formatted.score?.team2 ||
+        existing.team1?.name !== formatted.team1?.name ||
+        existing.team2?.name !== formatted.team2?.name ||
+        existing.team1?.crest !== formatted.team1?.crest ||
+        existing.team2?.crest !== formatted.team2?.crest
+    );
 }
 
 // Helpers mirroring db.js conversion routines
