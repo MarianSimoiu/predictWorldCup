@@ -120,7 +120,12 @@
                 return latestB - latestA;
             });
         }
-        return Object.values(groups).sort((a, b) => a.order - b.order);
+        // Sort sections by earliest kickoff among their remaining matches for true chronological order
+        return Object.values(groups).sort((a, b) => {
+            const earliestA = Math.min(...a.matches.map(m => new Date(m.kickoff).getTime()));
+            const earliestB = Math.min(...b.matches.map(m => new Date(m.kickoff).getTime()));
+            return earliestA - earliestB;
+        });
     });
 
     function isSectionCollapsed(label, allFinished) {
