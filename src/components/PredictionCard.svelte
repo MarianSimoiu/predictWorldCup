@@ -93,6 +93,9 @@
     {/if}
 
     <div class="form" class:dimmed={teamsPlaceholder}>
+        <div class="scope-note">
+            ⏱ Predictions are based on <strong>90 minutes of play only</strong> — extra time &amp; penalties do not count.
+        </div>
         <div class="section">
             <h4>1. Match Result (Required)</h4>
             <div class="options">
@@ -365,6 +368,19 @@
         margin-top: 0.1rem;
     }
     
+    .scope-note {
+        background: rgba(56, 189, 248, 0.07);
+        border: 1px solid rgba(56, 189, 248, 0.2);
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+        color: #94a3b8;
+        margin-bottom: 1.25rem;
+        line-height: 1.4;
+    }
+    .scope-note strong {
+        color: var(--color-primary);
+    }
     .dimmed {
         opacity: 0.5;
         pointer-events: none;
