@@ -2,8 +2,8 @@ name: Automatic Results Sync
 
 on:
   schedule:
-    # Run every hour, on the hour
-    - cron: '0 * * * *'
+    # Run once a day at 10:00 AM UTC+2 (08:00 UTC)
+    - cron: '0 8 * * *'
   workflow_dispatch:
     # Allow manual triggering from the GitHub UI
 
