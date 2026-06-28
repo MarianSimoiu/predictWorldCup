@@ -96,31 +96,37 @@
         if (filterAllJoker)    matches = matches.filter(m => m.jokerEligible);
         if (filterAllDouble)   matches = matches.filter(m => m.doublePoints);
 
-        const groups = {};
+        const groupsMap = new Map();
         for (const m of matches) {
             const label = getRoundLabel(m);
             const order = getRoundOrder(m);
-            if (!groups[label]) groups[label] = { label, order, matches: [], allFinished: true };
-            groups[label].matches.push(m);
-            if (m.status !== 'FINISHED') groups[label].allFinished = false;
+            if (!groupsMap.has(label)) groupsMap.set(label, { label, order, matches: [], allFinished: true });
+            const group = groupsMap.get(label);
+            group.matches.push(m);
+            if (m.status !== 'FINISHED') group.allFinished = false;
         }
-        // Sort matches within each group
-        for (const g of Object.values(groups)) {
+
+        // Sort matches within each group by date
+        for (const g of groupsMap.values()) {
             if (allGamesView === 'upcoming') {
                 g.matches.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
             } else {
                 g.matches.sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff));
             }
         }
+
+        // Convert to array and sort groups
+        const groupArray = Array.from(groupsMap.values());
         if (allGamesView === 'finished') {
             // Sort groups by their most recent game, newest first
-            return Object.values(groups).sort((a, b) => {
+            return groupArray.sort((a, b) => {
                 const latestA = Math.max(...a.matches.map(m => new Date(m.kickoff).getTime()));
                 const latestB = Math.max(...b.matches.map(m => new Date(m.kickoff).getTime()));
                 return latestB - latestA;
             });
         }
-        return Object.values(groups).sort((a, b) => a.order - b.order);
+        // For upcoming, sort by stage order (Round of 16 → Quarters → Semis → Final)
+        return groupArray.sort((a, b) => a.order - b.order);
     });
 
     function isSectionCollapsed(label, allFinished) {
