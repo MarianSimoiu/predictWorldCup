@@ -181,6 +181,9 @@
         {/if}
 
         <div class="scoring-guide">
+            <div class="time-scope-note">
+                ⏱️ <strong>90-Minute Scope:</strong> All predictions and scoring are based on the result at the end of 90 minutes of regular time only (no extra time or penalty shootouts).
+            </div>
             <h5>💡 How Scoring Works{match?.doublePoints ? ' · ⚡ 2×' : ''}{isJoker ? ' · 🃏 3×' : ''}</h5>
             <ul>
                 <li>
@@ -506,6 +509,20 @@
     }
     .strategy-tip strong {
         color: var(--color-accent);
+    }
+
+    .time-scope-note {
+        background: rgba(59, 130, 246, 0.08);
+        border: 1px solid rgba(59, 130, 246, 0.25);
+        border-radius: 6px;
+        padding: 0.75rem;
+        font-size: 0.82rem;
+        color: #e0e7ff;
+        line-height: 1.4;
+        margin-bottom: 1rem;
+    }
+    .time-scope-note strong {
+        color: #60a5fa;
     }
 
     /* On narrow phones, stack result buttons vertically so long team
