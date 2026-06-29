@@ -95,6 +95,7 @@ try {
     // Build finished-matches map from already-fetched data (saves an extra Firestore read)
     const finishedMatches = {};
     let hasUnscored = false;
+    const finishedScoredMatchIds = []; // finished matches already marked predictionsScored:true
     existingMatchesSnap.forEach(docSnap => {
         const data = docSnap.data();
         const matchedApi = apiMatches.find(m => String(m.id) === docSnap.id);
@@ -106,11 +107,36 @@ try {
             const actualResult = matchedApi ? calculateResult(matchedApi.score) : data.actualResult;
             const actualTotalGoals = matchedApi ? calculateGoals(matchedApi.score) : data.actualTotalGoals;
             finishedMatches[docSnap.id] = { ...data, status, actualResult, actualTotalGoals };
-            if (!data.predictionsScored) hasUnscored = true;
+            if (!data.predictionsScored) {
+                hasUnscored = true;
+            } else {
+                finishedScoredMatchIds.push(docSnap.id);
+            }
         }
     });
 
     const forceRecalculate = process.env.FORCE_RECALCULATE === 'true';
+
+    // Self-healing: if all matches are marked scored but some predictions may be stuck
+    // (resultCorrect: null due to the pre-fix LIVE→FINISHED bug), detect and recover
+    // automatically. Uses single-field 'in' queries (no composite index needed) with
+    // client-side null check. Only runs when hasUnscored is already false.
+    if (!hasUnscored && !forceRecalculate && finishedScoredMatchIds.length > 0) {
+        let hasStuck = false;
+        for (let i = 0; i < finishedScoredMatchIds.length && !hasStuck; i += 30) {
+            const checkBatch = finishedScoredMatchIds.slice(i, i + 30);
+            const snap = await db.collection('predictions')
+                .where('matchId', 'in', checkBatch)
+                .get();
+            if (snap.docs.some(d => d.data().resultCorrect === null)) {
+                hasStuck = true;
+            }
+        }
+        if (hasStuck) {
+            console.log('Detected stuck predictions (resultCorrect: null on scored matches). Triggering recalculation...');
+            hasUnscored = true;
+        }
+    }
 
     if (!hasUnscored && !forceRecalculate) {
         console.log('All finished matches already scored — skipping prediction recalculation.');
