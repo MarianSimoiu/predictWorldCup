@@ -598,9 +598,13 @@
                                                             <span class="lock-text">Locked</span>
                                                         </div>
                                                         {#if userPrediction && match.status === 'FINISHED'}
-                                                            <div class="points-earned-badge" class:pts-6={userPrediction.pointsAwarded >= 6} class:pts-3={userPrediction.pointsAwarded > 0 && userPrediction.pointsAwarded < 6} class:pts-0={userPrediction.pointsAwarded === 0}>
-                                                                +{userPrediction.pointsAwarded} pts{match.doublePoints ? ' ⚡' : ''}
-                                                            </div>
+                                                            {#if userPrediction.resultCorrect === null}
+                                                                <div class="points-earned-badge pts-0">⏳ pending</div>
+                                                            {:else}
+                                                                <div class="points-earned-badge" class:pts-6={userPrediction.pointsAwarded >= 6} class:pts-3={userPrediction.pointsAwarded > 0 && userPrediction.pointsAwarded < 6} class:pts-0={userPrediction.pointsAwarded === 0}>
+                                                                    +{userPrediction.pointsAwarded} pts{match.doublePoints ? ' ⚡' : ''}
+                                                                </div>
+                                                            {/if}
                                                         {/if}
                                                     </div>
                                                 {/if}
