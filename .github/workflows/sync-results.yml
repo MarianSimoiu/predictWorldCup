@@ -2,8 +2,9 @@ name: Automatic Results Sync
 
 on:
   schedule:
-    # Run once a day at 10:00 AM UTC+2 (08:00 UTC)
-    - cron: '0 8 * * *'
+    - cron: '0 8 * * *'    # 10:00 UTC+2 — morning catch-up
+    - cron: '30 16 * * *'  # 18:30 UTC+2 — after afternoon games
+    - cron: '30 20 * * *'  # 22:30 UTC+2 — after evening games
   workflow_dispatch:
     # Allow manual triggering from the GitHub UI
 

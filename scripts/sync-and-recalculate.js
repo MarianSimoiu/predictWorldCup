@@ -97,11 +97,15 @@ try {
     let hasUnscored = false;
     existingMatchesSnap.forEach(docSnap => {
         const data = docSnap.data();
-        // Use freshly synced status where available
         const matchedApi = apiMatches.find(m => String(m.id) === docSnap.id);
         const status = matchedApi ? matchedApi.status : data.status;
         if (status === 'FINISHED') {
-            finishedMatches[docSnap.id] = { ...data, status };
+            // Always use fresh result/goals from API — the Firestore snapshot was taken
+            // before the sync batch committed, so data.actualResult may still be null
+            // for matches that just transitioned from LIVE → FINISHED this run.
+            const actualResult = matchedApi ? calculateResult(matchedApi.score) : data.actualResult;
+            const actualTotalGoals = matchedApi ? calculateGoals(matchedApi.score) : data.actualTotalGoals;
+            finishedMatches[docSnap.id] = { ...data, status, actualResult, actualTotalGoals };
             if (!data.predictionsScored) hasUnscored = true;
         }
     });
