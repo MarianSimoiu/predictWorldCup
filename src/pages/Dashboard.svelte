@@ -504,6 +504,7 @@
                             team1Name={match.team1?.name || 'Team 1'}
                             team2Name={match.team2?.name || 'Team 2'}
                             isFinished={false}
+                            isKnockout={isKnockoutStage(match.stage)}
                         />
                     </div>
                 {/each}
@@ -667,6 +668,7 @@
                                                     team1Name={match.team1?.name || 'Team 1'}
                                                     team2Name={match.team2?.name || 'Team 2'}
                                                     isFinished={match.status === 'FINISHED'}
+                                                    isKnockout={isKnockoutStage(match.stage)}
                                                 />
                                             {/if}
                                         </div>
