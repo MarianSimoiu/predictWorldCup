@@ -1,8 +1,10 @@
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { calculatePredictionScore } from '../src/lib/scoring.js';
+import { calculatePredictionScore, calculateKnockoutScore } from '../src/lib/scoring.js';
 import fs from 'fs';
 import path from 'path';
+
+const KNOCKOUT_STAGES = ['ROUND_OF_16', 'QUARTER_FINALS', 'SEMI_FINALS', 'THIRD_PLACE', 'FINAL'];
 
 // 1. Initialize Firebase Admin SDK
 let serviceAccount;
@@ -75,7 +77,9 @@ try {
             // If the score changed on an already-scored match, clear the flag so it gets re-scored
             const scoreChanged = existing && existing.predictionsScored && (
                 existing.actualResult !== formatted.actualResult ||
-                existing.actualTotalGoals !== formatted.actualTotalGoals
+                existing.actualTotalGoals !== formatted.actualTotalGoals ||
+                existing.actualAdvancing !== formatted.actualAdvancing ||
+                existing.actualDepartureMethod !== formatted.actualDepartureMethod
             );
             batch.set(docRef, scoreChanged
                 ? { ...formatted, predictionsScored: false }
@@ -106,7 +110,10 @@ try {
             // for matches that just transitioned from LIVE → FINISHED this run.
             const actualResult = matchedApi ? calculateResult(matchedApi.score) : data.actualResult;
             const actualTotalGoals = matchedApi ? calculateGoals(matchedApi.score) : data.actualTotalGoals;
-            finishedMatches[docSnap.id] = { ...data, status, actualResult, actualTotalGoals };
+            const isKnockout = KNOCKOUT_STAGES.includes(data.stage);
+            const actualAdvancing = isKnockout ? (matchedApi ? calculateAdvancing(matchedApi.score) : data.actualAdvancing) : null;
+            const actualDepartureMethod = isKnockout ? (matchedApi ? calculateDepartureMethod(matchedApi.score) : data.actualDepartureMethod) : null;
+            finishedMatches[docSnap.id] = { ...data, status, actualResult, actualTotalGoals, actualAdvancing, actualDepartureMethod };
             if (!data.predictionsScored) {
                 hasUnscored = true;
             } else {
@@ -118,22 +125,27 @@ try {
     const forceRecalculate = process.env.FORCE_RECALCULATE === 'true';
 
     // Self-healing: if all matches are marked scored but some predictions may be stuck
-    // (resultCorrect: null due to the pre-fix LIVE→FINISHED bug), detect and recover
-    // automatically. Uses single-field 'in' queries (no composite index needed) with
-    // client-side null check. Only runs when hasUnscored is already false.
+    // (resultCorrect: null), detect this with a cheap targeted query before giving up.
+    // Only runs when there are no obviously unscored matches — avoids extra reads on
+    // normal no-op runs.
     if (!hasUnscored && !forceRecalculate && finishedScoredMatchIds.length > 0) {
-        let hasStuck = false;
-        for (let i = 0; i < finishedScoredMatchIds.length && !hasStuck; i += 30) {
-            const checkBatch = finishedScoredMatchIds.slice(i, i + 30);
-            const snap = await db.collection('predictions')
-                .where('matchId', 'in', checkBatch)
-                .get();
-            if (snap.docs.some(d => d.data().resultCorrect === null)) {
-                hasStuck = true;
+        // Check for stuck predictions client-side — avoids a composite Firestore index.
+        // Checks both regular (resultCorrect: null) and knockout (advancingCorrect: null).
+        const checkIds = finishedScoredMatchIds.slice(0, 30);
+        const stuckSnap = await db.collection('predictions')
+            .where('matchId', 'in', checkIds)
+            .get();
+        const hasStuck = stuckSnap.docs.some(d => {
+            const p = d.data();
+            const m = finishedMatches[p.matchId];
+            if (!m) return false;
+            if (KNOCKOUT_STAGES.includes(m.stage)) {
+                return p.predictedAdvancing && p.advancingCorrect === null;
             }
-        }
+            return p.resultCorrect === null;
+        });
         if (hasStuck) {
-            console.log('Detected stuck predictions (resultCorrect: null on scored matches). Triggering recalculation...');
+            console.log('Detected stuck predictions on scored matches. Triggering recalculation...');
             hasUnscored = true;
         }
     }
@@ -158,42 +170,56 @@ try {
 
     // Retrieve all predictions
     const predictionsSnapshot = await db.collection('predictions').get();
-    const userScores = {};
 
+    const userScores = {};
     batch = db.batch();
     let updateCount = 0;
 
     predictionsSnapshot.forEach(docSnap => {
         const prediction = docSnap.data();
         const match = finishedMatches[prediction.matchId];
-        
-        if (match && match.actualResult !== null) {
+        if (!match) return;
+
+        const uid = prediction.userId;
+        if (!userScores[uid]) {
+            userScores[uid] = { totalPoints: 0, correctPredictions: 0, correctGoals: 0, jokerPoints: 0, jokerCorrect: null, doubleCorrect: 0, doubleTotal: 0 };
+        }
+
+        const isKnockout = KNOCKOUT_STAGES.includes(match.stage);
+
+        if (isKnockout) {
+            // Skip incomplete knockout predictions (missing any of the three required fields)
+            if (!prediction.predictedAdvancing || !prediction.predictedGoalsTier || !prediction.predictedDepartureMethod) return;
+            if (match.actualAdvancing === null) return;
+
+            const { points, advancingCorrect, goalsCorrect, departureCorrect } = calculateKnockoutScore(
+                prediction,
+                match.actualAdvancing,
+                match.actualTotalGoals,
+                match.actualDepartureMethod
+            );
+
+            batch.update(docSnap.ref, { pointsAwarded: points, advancingCorrect, goalsCorrect, departureCorrect });
+            updateCount++;
+            if (updateCount % 400 === 0) { batch.commit(); batch = db.batch(); }
+
+            userScores[uid].totalPoints += points;
+            if (advancingCorrect) userScores[uid].correctPredictions += 1;
+            if (goalsCorrect) userScores[uid].correctGoals += 1;
+        } else {
+            if (match.actualResult === null) return;
+
             const { points, resultCorrect, goalsCorrect } = calculatePredictionScore(
                 prediction,
                 match.actualResult,
                 match.actualTotalGoals,
                 match.doublePoints === true
             );
-            
-            // Queue prediction update
-            batch.update(docSnap.ref, {
-                pointsAwarded: points,
-                resultCorrect,
-                goalsCorrect
-            });
+
+            batch.update(docSnap.ref, { pointsAwarded: points, resultCorrect, goalsCorrect });
             updateCount++;
-            
-            if (updateCount % 400 === 0) {
-                // Admin SDK batches also support up to 500 writes
-                batch.commit();
-                batch = db.batch();
-            }
-            
-            // Accumulate user points
-            const uid = prediction.userId;
-            if (!userScores[uid]) {
-                userScores[uid] = { totalPoints: 0, correctPredictions: 0, correctGoals: 0, jokerPoints: 0, jokerCorrect: null, doubleCorrect: 0, doubleTotal: 0 };
-            }
+            if (updateCount % 400 === 0) { batch.commit(); batch = db.batch(); }
+
             userScores[uid].totalPoints += points;
             if (resultCorrect) userScores[uid].correctPredictions += 1;
             if (goalsCorrect) userScores[uid].correctGoals += 1;
@@ -201,8 +227,7 @@ try {
                 userScores[uid].jokerPoints = points;
                 userScores[uid].jokerCorrect = resultCorrect;
             }
-            const matchDoc = finishedMatches[prediction.matchId];
-            if (matchDoc?.doublePoints) {
+            if (match.doublePoints) {
                 userScores[uid].doubleTotal += 2;
                 if (resultCorrect) userScores[uid].doubleCorrect += 1;
                 if (goalsCorrect) userScores[uid].doubleCorrect += 1;
@@ -287,6 +312,8 @@ function hasMatchChanged(existing, formatted) {
         existing.status !== formatted.status ||
         existing.actualResult !== formatted.actualResult ||
         existing.actualTotalGoals !== formatted.actualTotalGoals ||
+        existing.actualAdvancing !== formatted.actualAdvancing ||
+        existing.actualDepartureMethod !== formatted.actualDepartureMethod ||
         existing.score?.team1 !== formatted.score?.team1 ||
         existing.score?.team2 !== formatted.score?.team2 ||
         existing.team1?.name !== formatted.team1?.name ||
@@ -315,6 +342,7 @@ function calculateGoals(score) {
 }
 
 function formatMatchForDb(apiMatch) {
+    const isKnockout = KNOCKOUT_STAGES.includes(apiMatch.stage);
     return {
         id: String(apiMatch.id),
         matchday: apiMatch.matchday,
@@ -334,9 +362,24 @@ function formatMatchForDb(apiMatch) {
         status: apiMatch.status, // SCHEDULED, LIVE, FINISHED
         actualResult: calculateResult(apiMatch.score),
         actualTotalGoals: calculateGoals(apiMatch.score),
+        actualAdvancing: isKnockout ? calculateAdvancing(apiMatch.score) : null,
+        actualDepartureMethod: isKnockout ? calculateDepartureMethod(apiMatch.score) : null,
         score: {
             team1: apiMatch.score?.fullTime?.home ?? null,
             team2: apiMatch.score?.fullTime?.away ?? null
         }
     };
+}
+
+function calculateAdvancing(score) {
+    if (!score || !score.winner || score.winner === 'DRAW') return null;
+    return score.winner === 'HOME_TEAM' ? 'team1' : 'team2';
+}
+
+function calculateDepartureMethod(score) {
+    if (!score || !score.duration) return null;
+    if (score.duration === 'REGULAR') return 'REGULAR';
+    if (score.duration === 'EXTRA_TIME') return 'EXTRA_TIME';
+    if (score.duration === 'PENALTY_SHOOTOUT') return 'PENALTY_SHOOTOUT';
+    return null;
 }

@@ -1,7 +1,7 @@
 import { collection, doc, writeBatch, getDocs, getDoc, setDoc, query, orderBy, onSnapshot, where } from 'firebase/firestore';
 import { db } from './firebase.js';
 import { matchStore, predictionStore, userStore } from './stores.svelte.js';
-import { calculatePredictionScore } from './scoring.js';
+import { calculatePredictionScore, calculateKnockoutScore, isKnockoutStage } from './scoring.js';
 
 // Convert API match to our Firestore structure
 export function formatMatchForDb(apiMatch) {
@@ -126,6 +126,39 @@ function isPlaceholderTeam(teamName) {
 
 export { isPlaceholderTeam };
 
+export async function saveKnockoutPrediction(userId, matchId, predictedAdvancing, predictedGoalsTier, predictedDepartureMethod) {
+    const predictionId = `${userId}_${matchId}`;
+    const docRef = doc(db, 'predictions', predictionId);
+
+    const match = matchStore.matches.find(m => String(m.id) === String(matchId));
+    if (!match) throw new Error("Match not found");
+
+    if (isPlaceholderTeam(match.team1?.name) || isPlaceholderTeam(match.team2?.name)) {
+        throw new Error("Teams are not yet finalized. Predictions are locked until both qualifying teams are known.");
+    }
+
+    const lockTime = new Date(match.kickoff.getTime() - 60 * 60 * 1000);
+    if (new Date() >= lockTime) {
+        throw new Error("Match is locked. Predictions are closed.");
+    }
+
+    const displayName = userStore.user?.displayName || userStore.user?.email || null;
+
+    await setDoc(docRef, {
+        userId,
+        matchId: String(matchId),
+        predictedAdvancing,
+        predictedGoalsTier: predictedGoalsTier || null,
+        predictedDepartureMethod,
+        displayName,
+        submittedAt: new Date(),
+        pointsAwarded: 0,
+        advancingCorrect: null,
+        goalsCorrect: null,
+        departureCorrect: null
+    }, { merge: true });
+}
+
 export async function savePrediction(userId, matchId, predictedResult, predictedGoalsTier, isJoker = false) {
     const predictionId = `${userId}_${matchId}`;
     const docRef = doc(db, 'predictions', predictionId);
@@ -208,19 +241,37 @@ export async function recalculateAllScores() {
     predsSnap.forEach(docSnap => {
         const p = docSnap.data();
         const match = matchesMap[p.matchId];
+        if (!match) return;
 
-        if (match && match.actualResult !== null) {
+        if (!userScores[p.userId]) {
+            userScores[p.userId] = { totalPoints: 0, correctPredictions: 0, correctGoals: 0, jokerPoints: 0, jokerCorrect: null, doubleCorrect: 0, doubleTotal: 0 };
+        }
+
+        if (isKnockoutStage(match.stage)) {
+            // Skip incomplete predictions (missing any of the three required fields)
+            if (!p.predictedAdvancing || !p.predictedGoalsTier || !p.predictedDepartureMethod) return;
+            if (match.actualAdvancing === null) return;
+
+            const { points, advancingCorrect, goalsCorrect, departureCorrect } = calculateKnockoutScore(
+                p, match.actualAdvancing, match.actualTotalGoals, match.actualDepartureMethod
+            );
+
+            batch.update(docSnap.ref, { pointsAwarded: points, advancingCorrect, goalsCorrect, departureCorrect });
+            count++;
+            if (count === 400) commitBatch();
+
+            userScores[p.userId].totalPoints += points;
+            if (advancingCorrect) userScores[p.userId].correctPredictions += 1;
+            if (goalsCorrect) userScores[p.userId].correctGoals += 1;
+        } else {
+            if (match.actualResult === null) return;
+
             const { points, resultCorrect, goalsCorrect } = calculatePredictionScore(p, match.actualResult, match.actualTotalGoals, match.doublePoints === true);
 
-            // Update prediction doc
             batch.update(docSnap.ref, { pointsAwarded: points, resultCorrect, goalsCorrect });
             count++;
             if (count === 400) commitBatch();
 
-            // Tally user score
-            if (!userScores[p.userId]) {
-                userScores[p.userId] = { totalPoints: 0, correctPredictions: 0, correctGoals: 0, jokerPoints: 0, jokerCorrect: null, doubleCorrect: 0, doubleTotal: 0 };
-            }
             userScores[p.userId].totalPoints += points;
             if (resultCorrect) userScores[p.userId].correctPredictions += 1;
             if (goalsCorrect) userScores[p.userId].correctGoals += 1;
@@ -234,7 +285,7 @@ export async function recalculateAllScores() {
                 if (goalsCorrect) userScores[p.userId].doubleCorrect += 1;
             }
 
-            // Tally community stats per match
+            // Tally community stats per match (regular matches only)
             if (!matchCommunity[p.matchId]) {
                 matchCommunity[p.matchId] = {
                     totalPredictions: 0,
@@ -295,4 +346,3 @@ export async function ensureUserProfile(user) {
         lastActive: new Date()
     }, { merge: true });
 }
-

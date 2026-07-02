@@ -6,6 +6,7 @@
     import ErrorMessage from '../components/ErrorMessage.svelte';
     import CommunityPredictions from '../components/CommunityPredictions.svelte';
     import { CHAMPION_LOCK_DEADLINE, CHAMPION_REOPEN_START, CHAMPION_REOPEN_UNTIL } from '../lib/config.js';
+    import { isKnockoutStage } from '../lib/scoring.js';
 
     let userStats = $state({ totalPoints: 0, correctPredictions: 0, correctGoals: 0, winnerPrediction: null, rank: '-' });
     let error = $state(null);
@@ -25,10 +26,16 @@
         if (matchStore.loading || predictionStore.loading) return false;
         return matchStore.matches.some(m =>
             m.status === 'FINISHED' &&
-            userPredictionsList.some(p =>
-                p.match.id === m.id &&
-                (p.prediction.resultCorrect === null || (p.prediction.predictedGoalsTier && p.prediction.goalsCorrect === null))
-            )
+            userPredictionsList.some(p => {
+                if (p.match.id !== m.id) return false;
+                const pred = p.prediction;
+                if (isKnockoutStage(m.stage)) {
+                    // Only flag complete knockout predictions that haven't been scored yet
+                    return pred.predictedAdvancing && pred.predictedGoalsTier && pred.predictedDepartureMethod
+                        && pred.advancingCorrect === null;
+                }
+                return pred.resultCorrect === null || (pred.predictedGoalsTier && pred.goalsCorrect === null);
+            })
         );
     });
 
@@ -460,16 +467,31 @@
                         {#if userPrediction}
                             <div class="live-pred-row">
                                 <span class="live-pred-label">Your pick:</span>
-                                <strong>
-                                    {userPrediction.predictedResult === 'team1' ? (match.team1?.name || 'Team 1') :
-                                     userPrediction.predictedResult === 'team2' ? (match.team2?.name || 'Team 2') : 'Draw'}
-                                </strong>
-                                {#if userPrediction.predictedGoalsTier}
-                                    <span class="live-pred-sep">·</span>
-                                    <strong>{userPrediction.predictedGoalsTier} Goals</strong>
-                                {/if}
-                                {#if userPrediction.isJoker}
-                                    <span class="live-joker-tag">🃏 JOKER</span>
+                                {#if isKnockoutStage(match.stage)}
+                                    <strong>
+                                        {userPrediction.predictedAdvancing === 'team1' ? (match.team1?.name || 'Team 1') :
+                                         userPrediction.predictedAdvancing === 'team2' ? (match.team2?.name || 'Team 2') : '—'} advances
+                                    </strong>
+                                    {#if userPrediction.predictedGoalsTier}
+                                        <span class="live-pred-sep">·</span>
+                                        <strong>{userPrediction.predictedGoalsTier} Goals</strong>
+                                    {/if}
+                                    {#if userPrediction.predictedDepartureMethod}
+                                        <span class="live-pred-sep">·</span>
+                                        <strong>{userPrediction.predictedDepartureMethod === 'REGULAR' ? '90 min' : userPrediction.predictedDepartureMethod === 'EXTRA_TIME' ? 'ET' : 'Pen'}</strong>
+                                    {/if}
+                                {:else}
+                                    <strong>
+                                        {userPrediction.predictedResult === 'team1' ? (match.team1?.name || 'Team 1') :
+                                         userPrediction.predictedResult === 'team2' ? (match.team2?.name || 'Team 2') : 'Draw'}
+                                    </strong>
+                                    {#if userPrediction.predictedGoalsTier}
+                                        <span class="live-pred-sep">·</span>
+                                        <strong>{userPrediction.predictedGoalsTier} Goals</strong>
+                                    {/if}
+                                    {#if userPrediction.isJoker}
+                                        <span class="live-joker-tag">🃏 JOKER</span>
+                                    {/if}
                                 {/if}
                             </div>
                         {:else}
@@ -568,20 +590,43 @@
                                                 <div class="prediction-info">
                                                     {#if userPrediction}
                                                         <div class="predictions-summary">
-                                                            <div class="pred-row">
-                                                                <span class="pred-label">Winner:</span>
-                                                                <strong class="pred-val">
-                                                                    {userPrediction.predictedResult === 'team1' ? match.team1?.name || 'Team 1' :
-                                                                     userPrediction.predictedResult === 'team2' ? match.team2?.name || 'Team 2' :
-                                                                     'Draw'}
-                                                                </strong>
-                                                            </div>
-                                                            <div class="pred-row">
-                                                                <span class="pred-label">Goals:</span>
-                                                                <strong class="pred-val">
-                                                                    {userPrediction.predictedGoalsTier ? `${userPrediction.predictedGoalsTier} Goals` : 'None'}
-                                                                </strong>
-                                                            </div>
+                                                            {#if isKnockoutStage(match.stage)}
+                                                                {#if !userPrediction.predictedAdvancing || !userPrediction.predictedGoalsTier || !userPrediction.predictedDepartureMethod}
+                                                                    <div class="pred-row pred-incomplete">⚠️ Incomplete trio</div>
+                                                                {:else}
+                                                                    <div class="pred-row">
+                                                                        <span class="pred-label">Advances:</span>
+                                                                        <strong class="pred-val">
+                                                                            {userPrediction.predictedAdvancing === 'team1' ? match.team1?.name || 'Team 1' : match.team2?.name || 'Team 2'}
+                                                                        </strong>
+                                                                    </div>
+                                                                    <div class="pred-row">
+                                                                        <span class="pred-label">Goals:</span>
+                                                                        <strong class="pred-val">{userPrediction.predictedGoalsTier} Goals</strong>
+                                                                    </div>
+                                                                    <div class="pred-row">
+                                                                        <span class="pred-label">Ends:</span>
+                                                                        <strong class="pred-val">
+                                                                            {userPrediction.predictedDepartureMethod === 'REGULAR' ? '90 min' : userPrediction.predictedDepartureMethod === 'EXTRA_TIME' ? 'Extra Time' : 'Penalties'}
+                                                                        </strong>
+                                                                    </div>
+                                                                {/if}
+                                                            {:else}
+                                                                <div class="pred-row">
+                                                                    <span class="pred-label">Winner:</span>
+                                                                    <strong class="pred-val">
+                                                                        {userPrediction.predictedResult === 'team1' ? match.team1?.name || 'Team 1' :
+                                                                         userPrediction.predictedResult === 'team2' ? match.team2?.name || 'Team 2' :
+                                                                         'Draw'}
+                                                                    </strong>
+                                                                </div>
+                                                                <div class="pred-row">
+                                                                    <span class="pred-label">Goals:</span>
+                                                                    <strong class="pred-val">
+                                                                        {userPrediction.predictedGoalsTier ? `${userPrediction.predictedGoalsTier} Goals` : 'None'}
+                                                                    </strong>
+                                                                </div>
+                                                            {/if}
                                                         </div>
                                                     {:else}
                                                         <span class="no-prediction">No prediction yet</span>
@@ -598,11 +643,14 @@
                                                             <span class="lock-text">Locked</span>
                                                         </div>
                                                         {#if userPrediction && match.status === 'FINISHED'}
-                                                            {#if userPrediction.resultCorrect === null}
+                                                            {@const isPending = isKnockoutStage(match.stage)
+                                                                ? (userPrediction.predictedAdvancing && userPrediction.predictedDepartureMethod && userPrediction.advancingCorrect === null)
+                                                                : userPrediction.resultCorrect === null}
+                                                            {#if isPending}
                                                                 <div class="points-earned-badge pts-0">⏳ pending</div>
-                                                            {:else}
+                                                            {:else if !isKnockoutStage(match.stage) || userPrediction.predictedAdvancing}
                                                                 <div class="points-earned-badge" class:pts-6={userPrediction.pointsAwarded >= 6} class:pts-3={userPrediction.pointsAwarded > 0 && userPrediction.pointsAwarded < 6} class:pts-0={userPrediction.pointsAwarded === 0}>
-                                                                    +{userPrediction.pointsAwarded} pts{match.doublePoints ? ' ⚡' : ''}
+                                                                    +{userPrediction.pointsAwarded} pts{match.doublePoints && !isKnockoutStage(match.stage) ? ' ⚡' : ''}
                                                                 </div>
                                                             {/if}
                                                         {/if}
@@ -720,40 +768,86 @@
                                 <!-- Bets & Points -->
                                 <div class="card-footer">
                                     <div class="bets-summary">
-                                        <div class="bet-item">
-                                            <span class="bet-label">Winner Choice:</span>
-                                            <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.resultCorrect === true} class:incorrect={match.status === 'FINISHED' && pred.resultCorrect === false}>
-                                                {pred.predictedResult === 'team1' ? match.team1?.name :
-                                                 pred.predictedResult === 'team2' ? match.team2?.name :
-                                                 'Draw'}
-                                                {#if match.status === 'FINISHED'}
-                                                    {pred.resultCorrect === true ? '✅' : pred.resultCorrect === false ? '❌' : '⏳'}
-                                                {/if}
-                                            </span>
-                                        </div>
-                                        <div class="bet-item">
-                                            <span class="bet-label">Goals Choice:</span>
-                                            <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.goalsCorrect === true} class:incorrect={match.status === 'FINISHED' && pred.goalsCorrect === false}>
-                                                {pred.predictedGoalsTier ? `${pred.predictedGoalsTier} Goals` : 'None'}
-                                                {#if match.status === 'FINISHED' && pred.predictedGoalsTier}
-                                                    {pred.goalsCorrect === true ? '✅' : pred.goalsCorrect === false ? '❌' : '⏳'}
-                                                {/if}
-                                            </span>
-                                        </div>
+                                        {#if isKnockoutStage(match.stage)}
+                                            {#if !pred.predictedAdvancing && !pred.predictedDepartureMethod}
+                                                <div class="bet-item incomplete-bet">⚠️ Incomplete — re-predict using the new Knockout Trio format</div>
+                                            {:else}
+                                                <div class="bet-item">
+                                                    <span class="bet-label">Advances:</span>
+                                                    <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.advancingCorrect === true} class:incorrect={match.status === 'FINISHED' && pred.advancingCorrect === false}>
+                                                        {pred.predictedAdvancing === 'team1' ? match.team1?.name : pred.predictedAdvancing === 'team2' ? match.team2?.name : '—'}
+                                                        {#if match.status === 'FINISHED' && pred.predictedAdvancing}
+                                                            {pred.advancingCorrect === true ? '✅' : pred.advancingCorrect === false ? '❌' : '⏳'}
+                                                        {/if}
+                                                    </span>
+                                                </div>
+                                                <div class="bet-item">
+                                                    <span class="bet-label">Goals (90 min):</span>
+                                                    <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.goalsCorrect === true} class:incorrect={match.status === 'FINISHED' && pred.goalsCorrect === false}>
+                                                        {pred.predictedGoalsTier ? `${pred.predictedGoalsTier} Goals` : '—'}
+                                                        {#if match.status === 'FINISHED' && pred.predictedGoalsTier}
+                                                            {pred.goalsCorrect === true ? '✅' : pred.goalsCorrect === false ? '❌' : '⏳'}
+                                                        {/if}
+                                                    </span>
+                                                </div>
+                                                <div class="bet-item">
+                                                    <span class="bet-label">Ends via:</span>
+                                                    <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.departureCorrect === true} class:incorrect={match.status === 'FINISHED' && pred.departureCorrect === false}>
+                                                        {pred.predictedDepartureMethod === 'REGULAR' ? '90 min' : pred.predictedDepartureMethod === 'EXTRA_TIME' ? 'Extra Time' : pred.predictedDepartureMethod === 'PENALTY_SHOOTOUT' ? 'Penalties' : '—'}
+                                                        {#if match.status === 'FINISHED' && pred.predictedDepartureMethod}
+                                                            {pred.departureCorrect === true ? '✅' : pred.departureCorrect === false ? '❌' : '⏳'}
+                                                        {/if}
+                                                    </span>
+                                                </div>
+                                            {/if}
+                                        {:else}
+                                            <div class="bet-item">
+                                                <span class="bet-label">Winner Choice:</span>
+                                                <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.resultCorrect === true} class:incorrect={match.status === 'FINISHED' && pred.resultCorrect === false}>
+                                                    {pred.predictedResult === 'team1' ? match.team1?.name :
+                                                     pred.predictedResult === 'team2' ? match.team2?.name :
+                                                     'Draw'}
+                                                    {#if match.status === 'FINISHED'}
+                                                        {pred.resultCorrect === true ? '✅' : pred.resultCorrect === false ? '❌' : '⏳'}
+                                                    {/if}
+                                                </span>
+                                            </div>
+                                            <div class="bet-item">
+                                                <span class="bet-label">Goals Choice:</span>
+                                                <span class="bet-value" class:correct={match.status === 'FINISHED' && pred.goalsCorrect === true} class:incorrect={match.status === 'FINISHED' && pred.goalsCorrect === false}>
+                                                    {pred.predictedGoalsTier ? `${pred.predictedGoalsTier} Goals` : 'None'}
+                                                    {#if match.status === 'FINISHED' && pred.predictedGoalsTier}
+                                                        {pred.goalsCorrect === true ? '✅' : pred.goalsCorrect === false ? '❌' : '⏳'}
+                                                    {/if}
+                                                </span>
+                                            </div>
+                                        {/if}
                                     </div>
 
                                     <div class="points-summary">
                                         {#if match.status === 'FINISHED'}
-                                            {#if pred.resultCorrect === null || (pred.predictedGoalsTier && pred.goalsCorrect === null)}
+                                            {#if isKnockoutStage(match.stage)}
+                                                {#if pred.predictedAdvancing && pred.predictedDepartureMethod && pred.advancingCorrect === null}
+                                                    <div class="points-display pts-pending">
+                                                        <span class="pts-val">⏳</span>
+                                                        <span class="pts-lbl">points pending</span>
+                                                    </div>
+                                                {:else if pred.predictedAdvancing}
+                                                    <div class="points-display" class:pts-perfect={pred.pointsAwarded >= 6} class:pts-partial={pred.pointsAwarded > 0 && pred.pointsAwarded < 6} class:pts-zero={pred.pointsAwarded === 0}>
+                                                        <span class="pts-val">+{pred.pointsAwarded}</span>
+                                                        <span class="pts-lbl">pts</span>
+                                                    </div>
+                                                {/if}
+                                            {:else if pred.resultCorrect === null || (pred.predictedGoalsTier && pred.goalsCorrect === null)}
                                                 <div class="points-display pts-pending">
                                                     <span class="pts-val">⏳</span>
                                                     <span class="pts-lbl">points pending</span>
                                                 </div>
                                             {:else}
-                                            <div class="points-display" class:pts-perfect={pred.pointsAwarded >= 6} class:pts-partial={pred.pointsAwarded > 0 && pred.pointsAwarded < 6} class:pts-zero={pred.pointsAwarded === 0}>
-                                                <span class="pts-val">+{pred.pointsAwarded}</span>
-                                                <span class="pts-lbl">pts</span>
-                                            </div>
+                                                <div class="points-display" class:pts-perfect={pred.pointsAwarded >= 6} class:pts-partial={pred.pointsAwarded > 0 && pred.pointsAwarded < 6} class:pts-zero={pred.pointsAwarded === 0}>
+                                                    <span class="pts-val">+{pred.pointsAwarded}</span>
+                                                    <span class="pts-lbl">pts</span>
+                                                </div>
                                             {/if}
                                         {:else if match.status === 'LIVE'}
                                             <div class="status-badge live">LIVE</div>
@@ -1898,6 +1992,18 @@
 
     .bet-value.incorrect {
         color: #94a3b8;
+    }
+
+    .incomplete-bet {
+        font-size: 0.8rem;
+        color: #fb923c;
+        font-style: italic;
+    }
+
+    .pred-incomplete {
+        font-size: 0.75rem;
+        color: #fb923c;
+        font-style: italic;
     }
 
     .points-summary {
