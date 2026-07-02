@@ -238,6 +238,50 @@
                 </div>
             {/if}
 
+            {#if match?.status === 'FINISHED' && existingPrediction?.predictedAdvancing}
+                <div class="trio-result-summary">
+                    <h5>Your Trio Results</h5>
+                    <div class="trio-result-row">
+                        <span class="trio-result-label">Advances:</span>
+                        <span class="trio-result-val"
+                            class:trio-correct={existingPrediction.advancingCorrect === true}
+                            class:trio-incorrect={existingPrediction.advancingCorrect === false}>
+                            {existingPrediction.predictedAdvancing === 'team1' ? match.team1.name : match.team2.name}
+                            {existingPrediction.advancingCorrect === true ? '✅' : existingPrediction.advancingCorrect === false ? '❌' : '⏳'}
+                        </span>
+                    </div>
+                    <div class="trio-result-row">
+                        <span class="trio-result-label">Goals (90 min):</span>
+                        <span class="trio-result-val"
+                            class:trio-correct={existingPrediction.goalsCorrect === true}
+                            class:trio-incorrect={existingPrediction.goalsCorrect === false}>
+                            {existingPrediction.predictedGoalsTier ? `${existingPrediction.predictedGoalsTier} Goals` : '—'}
+                            {#if existingPrediction.predictedGoalsTier}
+                                {existingPrediction.goalsCorrect === true ? '✅' : existingPrediction.goalsCorrect === false ? '❌' : '⏳'}
+                            {/if}
+                        </span>
+                    </div>
+                    <div class="trio-result-row">
+                        <span class="trio-result-label">Ends via:</span>
+                        <span class="trio-result-val"
+                            class:trio-correct={existingPrediction.departureCorrect === true}
+                            class:trio-incorrect={existingPrediction.departureCorrect === false}>
+                            {existingPrediction.predictedDepartureMethod === 'REGULAR' ? '90 min'
+                                : existingPrediction.predictedDepartureMethod === 'EXTRA_TIME' ? 'Extra Time'
+                                : existingPrediction.predictedDepartureMethod === 'PENALTY_SHOOTOUT' ? 'Penalties' : '—'}
+                            {existingPrediction.departureCorrect === true ? '✅' : existingPrediction.departureCorrect === false ? '❌' : '⏳'}
+                        </span>
+                    </div>
+                    <div class="trio-result-points">
+                        {#if existingPrediction.advancingCorrect === null}
+                            ⏳ Points pending
+                        {:else}
+                            +{existingPrediction.pointsAwarded ?? 0} pts
+                        {/if}
+                    </div>
+                </div>
+            {/if}
+
             <div class="scoring-guide">
                 <h5>💡 How Knockout Trio Scoring Works</h5>
                 <ul>
@@ -720,6 +764,52 @@
     }
     .strategy-tip strong {
         color: var(--color-accent);
+    }
+
+    .trio-result-summary {
+        background: rgba(99, 179, 237, 0.06);
+        border: 1px solid rgba(99, 179, 237, 0.2);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        margin-bottom: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+    }
+    .trio-result-summary h5 {
+        margin: 0 0 0.5rem 0;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #63b3ed;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .trio-result-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.85rem;
+        gap: 0.5rem;
+    }
+    .trio-result-label {
+        color: #888;
+        flex-shrink: 0;
+    }
+    .trio-result-val {
+        font-weight: 600;
+        color: #ccc;
+        text-align: right;
+    }
+    .trio-result-val.trio-correct { color: #4ade80; }
+    .trio-result-val.trio-incorrect { color: #f87171; }
+    .trio-result-points {
+        margin-top: 0.4rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid rgba(99, 179, 237, 0.15);
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #63b3ed;
+        text-align: right;
     }
 
     /* On narrow phones, stack result buttons vertically so long team
