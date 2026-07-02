@@ -1,4 +1,5 @@
-export const KNOCKOUT_STAGES = ['ROUND_OF_16', 'QUARTER_FINALS', 'SEMI_FINALS', 'THIRD_PLACE', 'FINAL'];
+// football-data.org v4 uses LAST_16 for the 2026 WC round of 16; keep ROUND_OF_16 for backwards compat
+export const KNOCKOUT_STAGES = ['LAST_16', 'ROUND_OF_16', 'QUARTER_FINALS', 'SEMI_FINALS', 'THIRD_PLACE', 'FINAL'];
 
 export function isKnockoutStage(stage) {
     return KNOCKOUT_STAGES.includes(stage);

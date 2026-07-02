@@ -4,8 +4,11 @@
     import { isPlaceholderTeam } from '../lib/db.js';
     
     // Stages in order
+    // football-data.org v4 uses LAST_32 / LAST_16 for the 2026 WC; include ROUND_OF_* variants for safety
     const stageOrder = [
+        'LAST_32',
         'ROUND_OF_32',
+        'LAST_16',
         'ROUND_OF_16',
         'QUARTER_FINALS',
         'SEMI_FINALS',

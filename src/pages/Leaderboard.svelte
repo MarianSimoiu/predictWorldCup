@@ -148,11 +148,11 @@
                 <span class="col-pts">Pts</span>
                 <span class="col-results desktop-only">
                     Results
-                    <span class="tip" data-tip="Correct match outcome predictions (Win/Draw/Loss)">ℹ️</span>
+                    <span class="tip" data-tip="Correct result predictions: Win/Draw/Loss in group stage, advancing team in knockout rounds">ℹ️</span>
                 </span>
                 <span class="col-goals desktop-only">
                     Goals
-                    <span class="tip" data-tip="Correct total goals tier predictions (0-1 / 2-3 / 4+)">ℹ️</span>
+                    <span class="tip" data-tip="Correct 90-min goals tier predictions (0-1 / 2-3 / 4+) — group stage and knockout rounds">ℹ️</span>
                 </span>
                 <span class="col-double desktop-only">
                     ⚡ Double

@@ -74,7 +74,9 @@
     function getRoundLabel(match) {
         if (match.stage === 'GROUP_STAGE') return `Group Stage — Round ${match.matchday}`;
         const labels = {
+            LAST_32: 'Round of 32',
             ROUND_OF_32: 'Round of 32',
+            LAST_16: 'Round of 16',
             ROUND_OF_16: 'Round of 16',
             QUARTER_FINALS: 'Quarter Finals',
             SEMI_FINALS: 'Semi Finals',
@@ -86,7 +88,7 @@
 
     function getRoundOrder(match) {
         if (match.stage === 'GROUP_STAGE') return match.matchday || 0;
-        const order = { ROUND_OF_32: 4, ROUND_OF_16: 5, QUARTER_FINALS: 6, SEMI_FINALS: 7, THIRD_PLACE: 7.5, FINAL: 8 };
+        const order = { LAST_32: 4, ROUND_OF_32: 4, LAST_16: 5, ROUND_OF_16: 5, QUARTER_FINALS: 6, SEMI_FINALS: 7, THIRD_PLACE: 7.5, FINAL: 8 };
         return order[match.stage] ?? 99;
     }
 
