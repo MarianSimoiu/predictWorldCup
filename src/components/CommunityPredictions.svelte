@@ -17,7 +17,7 @@
                 preds.sort((a, b) => (b.pointsAwarded || 0) - (a.pointsAwarded || 0));
             } else if (isKnockout) {
                 const order = { team1: 0, team2: 1 };
-                preds.sort((a, b) => (order[a.predictedAdvancing] ?? 9) - (order[b.predictedAdvancing] ?? 9));
+                preds.sort((a, b) => (order[effectiveAdv(a)] ?? 9) - (order[effectiveAdv(b)] ?? 9));
             } else {
                 const order = { team1: 0, draw: 1, team2: 2 };
                 preds.sort((a, b) => (order[a.predictedResult] ?? 9) - (order[b.predictedResult] ?? 9));
@@ -45,29 +45,44 @@
         };
     });
 
-    // Knockout trio distributions (only count complete trio predictions)
+    // Derive effective advancing from trio OR old-style result pick (team1/team2 only — draw is unresolvable)
+    function effectiveAdv(p) {
+        if (p.predictedAdvancing) return p.predictedAdvancing;
+        if (p.predictedResult === 'team1' || p.predictedResult === 'team2') return p.predictedResult;
+        return null;
+    }
+
+    // Knockout trio distributions — includes mapped old-style picks for adv + goals bars
     let trioStats = $derived.by(() => {
         if (!isKnockout) return null;
-        const withPred = predictions.filter(p => p.predictedAdvancing);
-        const total = withPred.length;
+        // Count every prediction that has a resolvable advancing pick
+        const withAdv = predictions.filter(p => effectiveAdv(p) !== null);
+        const total = withAdv.length;
         if (total === 0) return null;
 
         const adv   = { team1: 0, team2: 0 };
         const goals = { '0-1': 0, '2-3': 0, '4+': 0 };
         const dep   = { REGULAR: 0, EXTRA_TIME: 0, PENALTY_SHOOTOUT: 0 };
+        let depTotal = 0;
 
-        for (const p of withPred) {
-            if (adv[p.predictedAdvancing]   !== undefined) adv[p.predictedAdvancing]++;
-            if (p.predictedGoalsTier  && goals[p.predictedGoalsTier]         !== undefined) goals[p.predictedGoalsTier]++;
-            if (p.predictedDepartureMethod && dep[p.predictedDepartureMethod] !== undefined) dep[p.predictedDepartureMethod]++;
+        for (const p of withAdv) {
+            const ea = effectiveAdv(p);
+            if (adv[ea] !== undefined) adv[ea]++;
+            if (p.predictedGoalsTier && goals[p.predictedGoalsTier] !== undefined) goals[p.predictedGoalsTier]++;
+            if (p.predictedDepartureMethod && dep[p.predictedDepartureMethod] !== undefined) {
+                dep[p.predictedDepartureMethod]++;
+                depTotal++;
+            }
         }
 
-        const pct = (n) => Math.round((n / total) * 100);
+        const pct  = (n) => Math.round((n / total) * 100);
+        // Departure bar only counts those who actually set a method
+        const dpct = (n) => depTotal > 0 ? Math.round((n / depTotal) * 100) : 0;
         return {
             total,
-            advancing: { team1Pct: pct(adv.team1),           team2Pct: pct(adv.team2) },
-            goals:     { lowPct:  pct(goals['0-1']),  midPct: pct(goals['2-3']),  highPct: pct(goals['4+']) },
-            departure: { regularPct: pct(dep.REGULAR), etPct: pct(dep.EXTRA_TIME), penPct: pct(dep.PENALTY_SHOOTOUT) },
+            advancing: { team1Pct: pct(adv.team1),  team2Pct: pct(adv.team2) },
+            goals:     { lowPct: pct(goals['0-1']), midPct: pct(goals['2-3']), highPct: pct(goals['4+']) },
+            departure: { regularPct: dpct(dep.REGULAR), etPct: dpct(dep.EXTRA_TIME), penPct: dpct(dep.PENALTY_SHOOTOUT), hasData: depTotal > 0 },
         };
     });
 
@@ -78,8 +93,9 @@
     }
 
     function advLabel(p) {
-        if (p.predictedAdvancing === 'team1') return team1Name;
-        if (p.predictedAdvancing === 'team2') return team2Name;
+        const ea = effectiveAdv(p);
+        if (ea === 'team1') return team1Name;
+        if (ea === 'team2') return team2Name;
         return '—';
     }
 
@@ -152,7 +168,8 @@
                     </div>
                 </div>
 
-                <!-- Bar 3: Departure method -->
+                <!-- Bar 3: Departure method — only shown when at least one user filled it in -->
+                {#if trioStats.departure.hasData}
                 <div class="trio-bar-block">
                     <div class="trio-bar-label">Ends via</div>
                     <div class="cp-bar">
@@ -181,21 +198,26 @@
                         <span class="cp-leg cp-leg-dep-pen">Pen {trioStats.departure.penPct}%</span>
                     </div>
                 </div>
+                {/if}
 
             </div>
 
             <!-- Knockout per-user rows -->
             <div class="cp-list">
                 {#each predictions as p (p.userId)}
+                    {@const ea = effectiveAdv(p)}
                     <div class="cp-row">
                         <span class="cp-name">{p.displayName || 'Anonymous'}</span>
-                        {#if p.predictedAdvancing}
+                        {#if ea}
                             <span class="cp-pick">{advLabel(p)} →</span>
                             {#if p.predictedGoalsTier}
                                 <span class="cp-goals">{p.predictedGoalsTier} goals</span>
                             {/if}
                             {#if p.predictedDepartureMethod}
                                 <span class="cp-dep">{depLabel(p.predictedDepartureMethod)}</span>
+                            {:else if !p.predictedAdvancing}
+                                <!-- mapped from old form — no method picked -->
+                                <span class="cp-dep cp-dep-mapped">?</span>
                             {/if}
                             {#if isFinished && p.advancingCorrect !== null}
                                 <span class="cp-pts" class:pts-good={p.pointsAwarded > 0} class:pts-zero={p.pointsAwarded === 0}>
@@ -203,7 +225,7 @@
                                 </span>
                             {/if}
                         {:else}
-                            <span class="cp-incomplete">incomplete</span>
+                            <span class="cp-incomplete">no pick</span>
                         {/if}
                     </div>
                 {/each}
@@ -394,6 +416,10 @@
         padding: 0.07rem 0.3rem;
         border-radius: 3px;
         flex-shrink: 0;
+    }
+    .cp-dep-mapped {
+        color: #555;
+        background: transparent;
     }
     .cp-joker { font-size: 0.78rem; flex-shrink: 0; }
     .cp-incomplete {
