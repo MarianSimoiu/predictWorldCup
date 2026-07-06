@@ -8,26 +8,15 @@ import path from 'path';
 const KNOCKOUT_STAGES = ['LAST_16', 'ROUND_OF_16', 'QUARTER_FINALS', 'SEMI_FINALS', 'THIRD_PLACE', 'FINAL'];
 
 // Legacy exception: these users were hit by a client cache bug on the Canada–Morocco R16
-// match (537376) and submitted the OLD group-stage prediction (predictedResult) instead of
-// the knockout trio form. We honour their pick by mapping it into a trio prediction:
-//   result team1/team2 -> advancing team;  result 'draw' -> departure EXTRA_TIME;  goals tier unchanged.
-// These docs are scored even though their trio is partial (the completeness guard is bypassed
-// for them only). Keyed by prediction doc id (`${userId}_${matchId}`).
-const LEGACY_TRIO_OVERRIDE_DOC_IDS = new Set([
-    'GBRJaHUhqpYBf3hmtCrKGscrCQ53_537376', // ifets — Morocco advances + 2-3 goals
-    'Uhmf9ieny1OSa1VpK34HBg096m72_537376', // Calin — draw => Extra Time + 2-3 goals
+// match (537376) and submitted the OLD group-stage prediction (predictedResult + goals)
+// instead of the knockout trio form. We honour their pick with the OLD scoring system
+// (6 pts if both result and goals correct, 3 if one, 0 if none) rather than the trio 2^n
+// formula. For the leaderboard, result -> advancing (correctPredictions) and goals -> goals
+// (correctGoals). Keyed by prediction doc id (`${userId}_${matchId}`).
+const LEGACY_OLD_SCORING_DOC_IDS = new Set([
+    'GBRJaHUhqpYBf3hmtCrKGscrCQ53_537376', // ifets — Morocco (result) + 2-3 goals => 6 pts
+    'Uhmf9ieny1OSa1VpK34HBg096m72_537376', // Calin — draw (result) + 2-3 goals => 3 pts
 ]);
-
-// Build a trio-shaped prediction from an old-style result prediction (see note above).
-function mapLegacyResultToTrio(prediction) {
-    const predictedAdvancing = (prediction.predictedResult === 'team1' || prediction.predictedResult === 'team2')
-        ? prediction.predictedResult
-        : (prediction.predictedAdvancing ?? null);
-    const predictedDepartureMethod = prediction.predictedResult === 'draw'
-        ? 'EXTRA_TIME'
-        : (prediction.predictedDepartureMethod ?? null);
-    return { ...prediction, predictedAdvancing, predictedDepartureMethod };
-}
 
 // 1. Initialize Firebase Admin SDK
 let serviceAccount;
@@ -211,18 +200,37 @@ try {
         const isKnockout = KNOCKOUT_STAGES.includes(match.stage);
 
         if (isKnockout) {
-            const isLegacyOverride = LEGACY_TRIO_OVERRIDE_DOC_IDS.has(docSnap.id);
-            // For legacy-override users, map their old result pick into a partial trio and
-            // score it; everyone else must have a complete trio or they're skipped.
-            const scoringPred = isLegacyOverride ? mapLegacyResultToTrio(prediction) : prediction;
-            if (!isLegacyOverride) {
-                // Skip incomplete knockout predictions (missing any of the three required fields)
-                if (!prediction.predictedAdvancing || !prediction.predictedGoalsTier || !prediction.predictedDepartureMethod) return;
+            // Legacy-override users submitted the OLD group-stage prediction (result + goals)
+            // due to a cache bug — score it with the OLD system (6/3/0) instead of the trio
+            // formula, mapping result -> advancing and goals -> goals for the leaderboard.
+            if (LEGACY_OLD_SCORING_DOC_IDS.has(docSnap.id)) {
+                if (match.actualResult === null) return;
+                const { points, resultCorrect, goalsCorrect } = calculatePredictionScore(
+                    { ...prediction, isJoker: false }, // joker never applies to these knockout fixes
+                    match.actualResult,
+                    match.actualTotalGoals,
+                    false
+                );
+                batch.update(docSnap.ref, {
+                    pointsAwarded: points,
+                    advancingCorrect: resultCorrect,
+                    goalsCorrect,
+                    departureCorrect: false,
+                });
+                updateCount++;
+                if (updateCount % 400 === 0) { batch.commit(); batch = db.batch(); }
+                userScores[uid].totalPoints += points;
+                if (resultCorrect) userScores[uid].correctPredictions += 1;
+                if (goalsCorrect) userScores[uid].correctGoals += 1;
+                return;
             }
+
+            // Skip incomplete knockout predictions (missing any of the three required fields)
+            if (!prediction.predictedAdvancing || !prediction.predictedGoalsTier || !prediction.predictedDepartureMethod) return;
             if (match.actualAdvancing === null) return;
 
             const { points, advancingCorrect, goalsCorrect, departureCorrect } = calculateKnockoutScore(
-                scoringPred,
+                prediction,
                 match.actualAdvancing,
                 match.actualTotalGoals,
                 match.actualDepartureMethod
