@@ -7,15 +7,16 @@ import path from 'path';
 // football-data.org v4 uses LAST_16 for the 2026 WC round of 16; keep ROUND_OF_16 for backwards compat
 const KNOCKOUT_STAGES = ['LAST_16', 'ROUND_OF_16', 'QUARTER_FINALS', 'SEMI_FINALS', 'THIRD_PLACE', 'FINAL'];
 
-// Legacy exception: these users were hit by a client cache bug on the Canada–Morocco R16
-// match (537376) and submitted the OLD group-stage prediction (predictedResult + goals)
-// instead of the knockout trio form. We honour their pick with the OLD scoring system
-// (6 pts if both result and goals correct, 3 if one, 0 if none) rather than the trio 2^n
-// formula. For the leaderboard, result -> advancing (correctPredictions) and goals -> goals
-// (correctGoals). Keyed by prediction doc id (`${userId}_${matchId}`).
+// Legacy exception: these users were hit by a client cache bug on two R16 matches
+// (Canada–Morocco 537376, Paraguay–France 537375) and submitted the OLD group-stage
+// prediction (predictedResult + goals) instead of the knockout trio form. We honour their
+// pick with the OLD scoring system (6 pts if both result and goals correct, 3 if one, 0 if
+// none) rather than the trio 2^n formula. For the leaderboard, result -> advancing
+// (correctPredictions) and goals -> goals (correctGoals). Keyed by doc id (`${userId}_${matchId}`).
 const LEGACY_OLD_SCORING_DOC_IDS = new Set([
     'GBRJaHUhqpYBf3hmtCrKGscrCQ53_537376', // ifets — Morocco (result) + 2-3 goals => 6 pts
     'Uhmf9ieny1OSa1VpK34HBg096m72_537376', // Calin — draw (result) + 2-3 goals => 3 pts
+    'Uhmf9ieny1OSa1VpK34HBg096m72_537375', // Calin — France (result) + 4+ goals => 3 pts
 ]);
 
 // 1. Initialize Firebase Admin SDK
