@@ -45,43 +45,49 @@
         };
     });
 
-    // Derive effective advancing from trio OR old-style result pick (team1/team2 only — draw is unresolvable)
+    // Derive effective advancing from trio OR old-style result pick (team1/team2 only)
     function effectiveAdv(p) {
         if (p.predictedAdvancing) return p.predictedAdvancing;
         if (p.predictedResult === 'team1' || p.predictedResult === 'team2') return p.predictedResult;
         return null;
     }
+    // Derive effective departure — old-style 'draw' pick maps to Extra Time in knockout
+    function effectiveDep(p) {
+        if (p.predictedDepartureMethod) return p.predictedDepartureMethod;
+        if (p.predictedResult === 'draw') return 'EXTRA_TIME';
+        return null;
+    }
+    // A prediction takes part in knockout stats if it carries any resolvable signal
+    function hasKnockoutSignal(p) {
+        return effectiveAdv(p) !== null || effectiveDep(p) !== null || !!p.predictedGoalsTier;
+    }
 
-    // Knockout trio distributions — includes mapped old-style picks for adv + goals bars
+    // Knockout trio distributions — each bar uses its own denominator so mapped old-style
+    // picks (team -> advances, draw -> ET) are represented in whichever bars they resolve to.
     let trioStats = $derived.by(() => {
         if (!isKnockout) return null;
-        // Count every prediction that has a resolvable advancing pick
-        const withAdv = predictions.filter(p => effectiveAdv(p) !== null);
-        const total = withAdv.length;
-        if (total === 0) return null;
+        const participants = predictions.filter(hasKnockoutSignal);
+        if (participants.length === 0) return null;
 
         const adv   = { team1: 0, team2: 0 };
         const goals = { '0-1': 0, '2-3': 0, '4+': 0 };
         const dep   = { REGULAR: 0, EXTRA_TIME: 0, PENALTY_SHOOTOUT: 0 };
-        let depTotal = 0;
+        let advTotal = 0, goalsTotal = 0, depTotal = 0;
 
-        for (const p of withAdv) {
+        for (const p of participants) {
             const ea = effectiveAdv(p);
-            if (adv[ea] !== undefined) adv[ea]++;
-            if (p.predictedGoalsTier && goals[p.predictedGoalsTier] !== undefined) goals[p.predictedGoalsTier]++;
-            if (p.predictedDepartureMethod && dep[p.predictedDepartureMethod] !== undefined) {
-                dep[p.predictedDepartureMethod]++;
-                depTotal++;
-            }
+            const ed = effectiveDep(p);
+            if (ea && adv[ea] !== undefined) { adv[ea]++; advTotal++; }
+            if (p.predictedGoalsTier && goals[p.predictedGoalsTier] !== undefined) { goals[p.predictedGoalsTier]++; goalsTotal++; }
+            if (ed && dep[ed] !== undefined) { dep[ed]++; depTotal++; }
         }
 
-        const pct  = (n) => Math.round((n / total) * 100);
-        // Departure bar only counts those who actually set a method
-        const dpct = (n) => depTotal > 0 ? Math.round((n / depTotal) * 100) : 0;
+        const mk = (den) => (n) => den > 0 ? Math.round((n / den) * 100) : 0;
+        const apct = mk(advTotal), gpct = mk(goalsTotal), dpct = mk(depTotal);
         return {
-            total,
-            advancing: { team1Pct: pct(adv.team1),  team2Pct: pct(adv.team2) },
-            goals:     { lowPct: pct(goals['0-1']), midPct: pct(goals['2-3']), highPct: pct(goals['4+']) },
+            total: participants.length,
+            advancing: { team1Pct: apct(adv.team1),  team2Pct: apct(adv.team2), hasData: advTotal > 0 },
+            goals:     { lowPct: gpct(goals['0-1']), midPct: gpct(goals['2-3']), highPct: gpct(goals['4+']), hasData: goalsTotal > 0 },
             departure: { regularPct: dpct(dep.REGULAR), etPct: dpct(dep.EXTRA_TIME), penPct: dpct(dep.PENALTY_SHOOTOUT), hasData: depTotal > 0 },
         };
     });
@@ -116,6 +122,7 @@
             <div class="trio-bars">
 
                 <!-- Bar 1: Advancing team -->
+                {#if trioStats.advancing.hasData}
                 <div class="trio-bar-block">
                     <div class="trio-bar-label">Advances</div>
                     <div class="cp-bar">
@@ -137,8 +144,10 @@
                         <span class="cp-leg cp-leg-t2">{team2Name} ✈️ {trioStats.advancing.team2Pct}%</span>
                     </div>
                 </div>
+                {/if}
 
                 <!-- Bar 2: Goals tier -->
+                {#if trioStats.goals.hasData}
                 <div class="trio-bar-block">
                     <div class="trio-bar-label">Goals (90 min)</div>
                     <div class="cp-bar">
@@ -167,6 +176,7 @@
                         <span class="cp-leg cp-leg-goals-high">4+ Goals {trioStats.goals.highPct}%</span>
                     </div>
                 </div>
+                {/if}
 
                 <!-- Bar 3: Departure method — only shown when at least one user filled it in -->
                 {#if trioStats.departure.hasData}
@@ -206,20 +216,25 @@
             <div class="cp-list">
                 {#each predictions as p (p.userId)}
                     {@const ea = effectiveAdv(p)}
+                    {@const ed = effectiveDep(p)}
                     <div class="cp-row">
                         <span class="cp-name">{p.displayName || 'Anonymous'}</span>
-                        {#if ea}
-                            <span class="cp-pick">{advLabel(p)} →</span>
+                        {#if hasKnockoutSignal(p)}
+                            {#if ea}
+                                <span class="cp-pick">{advLabel(p)} →</span>
+                            {:else}
+                                <span class="cp-pick cp-pick-none">no advance pick</span>
+                            {/if}
                             {#if p.predictedGoalsTier}
                                 <span class="cp-goals">{p.predictedGoalsTier} goals</span>
                             {/if}
-                            {#if p.predictedDepartureMethod}
-                                <span class="cp-dep">{depLabel(p.predictedDepartureMethod)}</span>
-                            {:else if !p.predictedAdvancing}
+                            {#if ed}
+                                <span class="cp-dep">{depLabel(ed)}</span>
+                            {:else if !p.predictedDepartureMethod}
                                 <!-- mapped from old form — no method picked -->
                                 <span class="cp-dep cp-dep-mapped">?</span>
                             {/if}
-                            {#if isFinished && p.advancingCorrect !== null}
+                            {#if isFinished && (p.advancingCorrect !== null || p.pointsAwarded != null)}
                                 <span class="cp-pts" class:pts-good={p.pointsAwarded > 0} class:pts-zero={p.pointsAwarded === 0}>
                                     +{p.pointsAwarded ?? 0} pts
                                 </span>
@@ -401,6 +416,7 @@
         flex-shrink: 0;
     }
     .cp-pick { color: #fff; font-weight: 700; flex-shrink: 0; }
+    .cp-pick-none { color: #777; font-weight: 600; font-style: italic; }
     .cp-goals {
         color: #888;
         font-size: 0.7rem;
