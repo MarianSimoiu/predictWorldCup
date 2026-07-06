@@ -24,9 +24,15 @@ export function formatMatchForDb(apiMatch) {
         status: apiMatch.status, // SCHEDULED, LIVE, FINISHED
         actualResult: calculateResult(apiMatch.score),
         actualTotalGoals: calculateGoals(apiMatch.score),
+        // Final score (includes extra time for knockout matches decided in ET)
         score: {
             team1: apiMatch.score?.fullTime?.home ?? null,
             team2: apiMatch.score?.fullTime?.away ?? null
+        },
+        // Score after 90 minutes only — differs from `score` for ET/penalty knockout games
+        score90: {
+            team1: apiMatch.score?.regularTime?.home ?? apiMatch.score?.fullTime?.home ?? null,
+            team2: apiMatch.score?.regularTime?.away ?? apiMatch.score?.fullTime?.away ?? null
         }
     };
 }
