@@ -49,6 +49,18 @@
         const kickoffTime = match.kickoff instanceof Date ? match.kickoff.getTime() : new Date(match.kickoff).getTime();
         return new Date().getTime() < (kickoffTime - 60 * 60 * 1000);
     }
+
+    // The final score can include extra time; show the 90-minute score when it differs.
+    function departureTag(m) {
+        if (m.actualDepartureMethod === 'EXTRA_TIME') return 'a.e.t.';
+        if (m.actualDepartureMethod === 'PENALTY_SHOOTOUT') return 'pens';
+        return '';
+    }
+    function has90Split(m) {
+        return m.score90 && m.score
+            && m.score90.team1 != null && m.score90.team2 != null
+            && (m.score90.team1 !== m.score.team1 || m.score90.team2 !== m.score.team2);
+    }
 </script>
 
 <div class="knockout-page">
@@ -87,7 +99,14 @@
                                 </div>
                                 <div class="score">
                                     {#if match.status === 'FINISHED' || match.status === 'LIVE'}
-                                        {match.score.team1} - {match.score.team2}
+                                        <span class="ko-final">{match.score.team1} - {match.score.team2}</span>
+                                        {#if match.status === 'FINISHED'}
+                                            {@const tag = departureTag(match)}
+                                            {#if tag}<span class="ko-tag">{tag}</span>{/if}
+                                            {#if has90Split(match)}
+                                                <span class="ko-90">90&#39;: {match.score90.team1}–{match.score90.team2}</span>
+                                            {/if}
+                                        {/if}
                                     {:else}
                                         vs
                                     {/if}
@@ -224,6 +243,24 @@
         border-radius: 4px;
         font-size: clamp(0.8rem, 2vw, 0.9rem);
         white-space: nowrap;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.1rem;
+        line-height: 1.2;
+    }
+    .ko-final { font-weight: bold; }
+    .ko-tag {
+        font-size: 0.6rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--color-accent);
+    }
+    .ko-90 {
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: #9aa0aa;
     }
     .predict-btn {
         display: block;
