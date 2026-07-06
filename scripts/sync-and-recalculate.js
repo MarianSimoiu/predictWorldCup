@@ -354,6 +354,8 @@ function hasMatchChanged(existing, formatted) {
         existing.actualDepartureMethod !== formatted.actualDepartureMethod ||
         existing.score?.team1 !== formatted.score?.team1 ||
         existing.score?.team2 !== formatted.score?.team2 ||
+        existing.score90?.team1 !== formatted.score90?.team1 ||
+        existing.score90?.team2 !== formatted.score90?.team2 ||
         existing.team1?.name !== formatted.team1?.name ||
         existing.team2?.name !== formatted.team2?.name ||
         existing.team1?.crest !== formatted.team1?.crest ||
@@ -402,9 +404,16 @@ function formatMatchForDb(apiMatch) {
         actualTotalGoals: calculateGoals(apiMatch.score),
         actualAdvancing: isKnockout ? calculateAdvancing(apiMatch.score) : null,
         actualDepartureMethod: isKnockout ? calculateDepartureMethod(apiMatch.score) : null,
+        // Final score (includes extra time for knockout matches decided in ET)
         score: {
             team1: apiMatch.score?.fullTime?.home ?? null,
             team2: apiMatch.score?.fullTime?.away ?? null
+        },
+        // Score after 90 minutes only — differs from `score` for ET/penalty knockout games.
+        // Falls back to fullTime when the API omits regularTime (regulation matches).
+        score90: {
+            team1: apiMatch.score?.regularTime?.home ?? apiMatch.score?.fullTime?.home ?? null,
+            team2: apiMatch.score?.regularTime?.away ?? apiMatch.score?.fullTime?.away ?? null
         }
     };
 }

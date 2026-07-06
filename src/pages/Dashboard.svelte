@@ -92,6 +92,20 @@
         return order[match.stage] ?? 99;
     }
 
+    // Knockout score helpers — the final score can include extra time, so also expose the
+    // 90-minute score when it differs (i.e. matches decided in ET or on penalties).
+    function departureTag(match) {
+        if (match.actualDepartureMethod === 'EXTRA_TIME') return 'a.e.t.';
+        if (match.actualDepartureMethod === 'PENALTY_SHOOTOUT') return 'pens';
+        return '';
+    }
+    function has90Split(match) {
+        return match.score90
+            && match.score
+            && match.score90.team1 != null && match.score90.team2 != null
+            && (match.score90.team1 !== match.score.team1 || match.score90.team2 !== match.score.team2);
+    }
+
     let allGamesGrouped = $derived.by(() => {
         if (matchStore.loading) return [];
         let matches = [...matchStore.matches];
@@ -574,7 +588,7 @@
                                                     {/if}
                                                     <span class="team-name">{match.team1?.name || 'TBD'}</span>
                                                 </div>
-                                                <div class="vs">{#if match.status === 'FINISHED' && match.score?.team1 !== null && match.score?.team2 !== null}<span class="final-score">{match.score.team1} – {match.score.team2}</span>{:else}VS{/if}</div>
+                                                <div class="vs">{#if match.status === 'FINISHED' && match.score?.team1 !== null && match.score?.team2 !== null}<div class="score-stack"><span class="final-score">{match.score.team1} – {match.score.team2}</span>{#if isKnockoutStage(match.stage)}{@const tag = departureTag(match)}{#if tag}<span class="score-tag">{tag}</span>{/if}{#if has90Split(match)}<span class="score-90">90&#39;: {match.score90.team1}–{match.score90.team2}</span>{/if}{/if}</div>{:else}VS{/if}</div>
                                                 <div class="team team-2">
                                                     <span class="team-name">{match.team2?.name || 'TBD'}</span>
                                                     {#if match.team2?.crest}
@@ -753,6 +767,13 @@
                                     <div class="history-score">
                                         {#if match.status === 'FINISHED' || match.status === 'LIVE'}
                                             <span class="score-text">{match.score?.team1} - {match.score?.team2}</span>
+                                            {#if match.status === 'FINISHED' && isKnockoutStage(match.stage)}
+                                                {@const tag = departureTag(match)}
+                                                {#if tag}<span class="score-tag">{tag}</span>{/if}
+                                                {#if has90Split(match)}
+                                                    <span class="score-90">90': {match.score90.team1}–{match.score90.team2}</span>
+                                                {/if}
+                                            {/if}
                                             {#if match.status === 'LIVE'}
                                                 <span class="live-tag">LIVE</span>
                                             {/if}
@@ -1641,6 +1662,28 @@
         font-weight: 800;
         color: #fff;
         letter-spacing: 0.04em;
+    }
+
+    /* Knockout score breakdown (final + 90-minute) — shared by both card layouts */
+    .score-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.1rem;
+        line-height: 1.15;
+    }
+    .score-tag {
+        font-size: 0.6rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--color-accent, #fbbf24);
+    }
+    .score-90 {
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: #9aa0aa;
+        white-space: nowrap;
     }
 
     .match-details {

@@ -2,7 +2,8 @@
     import { matchStore, userStore, predictionStore } from '../lib/stores.svelte.js';
     import PredictionCard from '../components/PredictionCard.svelte';
     import ErrorMessage from '../components/ErrorMessage.svelte';
-    
+    import { isKnockoutStage } from '../lib/scoring.js';
+
     let { params = {} } = $props();
     
     let matchId = $derived(params.id);
@@ -13,10 +14,22 @@
 
     function formatTime(date) {
         if (!date) return '';
-        return new Intl.DateTimeFormat('default', { 
-            weekday: 'long', month: 'long', day: 'numeric', 
-            hour: '2-digit', minute: '2-digit' 
+        return new Intl.DateTimeFormat('default', {
+            weekday: 'long', month: 'long', day: 'numeric',
+            hour: '2-digit', minute: '2-digit'
         }).format(date);
+    }
+
+    // The final score can include extra time; expose the 90-minute score when it differs.
+    function departureTag(m) {
+        if (m.actualDepartureMethod === 'EXTRA_TIME') return 'a.e.t.';
+        if (m.actualDepartureMethod === 'PENALTY_SHOOTOUT') return 'pens';
+        return '';
+    }
+    function has90Split(m) {
+        return m.score90 && m.score
+            && m.score90.team1 != null && m.score90.team2 != null
+            && (m.score90.team1 !== m.score.team1 || m.score90.team2 !== m.score.team2);
     }
 </script>
 
@@ -50,6 +63,13 @@
                         <div class="score-numbers">
                             {match.score.team1} - {match.score.team2}
                         </div>
+                        {#if match.status === 'FINISHED' && isKnockoutStage(match.stage)}
+                            {@const tag = departureTag(match)}
+                            {#if tag}<div class="score-tag">{tag}</div>{/if}
+                            {#if has90Split(match)}
+                                <div class="score-90">90 min: {match.score90.team1} - {match.score90.team2}</div>
+                            {/if}
+                        {/if}
                     {:else}
                         <div class="vs">VS</div>
                     {/if}
@@ -158,6 +178,21 @@
         font-weight: 800;
         color: var(--color-primary);
         text-shadow: 0 2px 10px rgba(56, 189, 248, 0.3);
+        white-space: nowrap;
+    }
+    .score-tag {
+        margin-top: 0.15rem;
+        font-size: clamp(0.6rem, 2vw, 0.75rem);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-accent, #fbbf24);
+    }
+    .score-90 {
+        margin-top: 0.1rem;
+        font-size: clamp(0.65rem, 2vw, 0.85rem);
+        font-weight: 600;
+        color: #9aa0aa;
         white-space: nowrap;
     }
 
