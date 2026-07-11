@@ -132,7 +132,7 @@ await db.runTransaction(async (tx) => {
         departureCorrect,
     });
 
-    if (userSnap.exists()) {
+    if (userSnap.exists) {
         const u = userSnap.data();
         const newTotal = (u.totalPoints || 0) + delta;
         const newCorrectPreds = (u.correctPredictions || 0) + (advancingCorrect ? 1 : 0);
