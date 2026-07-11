@@ -115,7 +115,13 @@ console.log(`  predictedAdvancing: ${predData.predictedAdvancing || '(null)'}`);
 console.log(`  predictedGoalsTier: ${predData.predictedGoalsTier || '(null)'}`);
 console.log(`  predictedDepartureMethod: ${predData.predictedDepartureMethod || '(null)'}`);
 
+const userId = predData.userId;
+const userRef = db.collection('users').doc(userId);
+
 await db.runTransaction(async (tx) => {
+    // All reads must come before any writes in a Firestore transaction
+    const userSnap = await tx.get(userRef);
+
     tx.update(predDoc.ref, {
         predictedAdvancing,
         predictedGoalsTier: PREDICTED_GOALS,
@@ -126,10 +132,6 @@ await db.runTransaction(async (tx) => {
         departureCorrect,
     });
 
-    // Update user totals: increment by delta
-    const userId = predData.userId;
-    const userRef = db.collection('users').doc(userId);
-    const userSnap = await tx.get(userRef);
     if (userSnap.exists()) {
         const u = userSnap.data();
         const newTotal = (u.totalPoints || 0) + delta;
