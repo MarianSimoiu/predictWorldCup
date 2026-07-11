@@ -99,8 +99,7 @@ const predDoc = predsSnap.docs.find(d => d.data().displayName === DISPLAY_NAME);
 if (!predDoc) {
     console.error(`\nNo prediction found for "${DISPLAY_NAME}" on match ${targetMatch.id}`);
     console.log('Existing predictions:', predsSnap.docs.map(d => d.data().displayName).join(', '));
-    // Create a new prediction document
-    const userId = predsSnap.docs[0]?.data()?.userId; // fallback — won't work without userId
+    const userId = predsSnap.docs[0]?.data()?.userId;
     console.error('Cannot create without userId. Ask the user for their account email.');
     process.exit(1);
 }
@@ -132,7 +131,8 @@ await db.runTransaction(async (tx) => {
         departureCorrect,
     });
 
-    if (userSnap.exists()) {
+    // firebase-admin v12: .exists is a property, not a method
+    if (userSnap.exists) {
         const u = userSnap.data();
         const newTotal = (u.totalPoints || 0) + delta;
         const newCorrectPreds = (u.correctPredictions || 0) + (advancingCorrect ? 1 : 0);
