@@ -1,0 +1,58 @@
+name: Admin — Fix User Prediction
+
+on:
+  workflow_dispatch:
+    inputs:
+      display_name:
+        description: 'User display name (as shown in the app)'
+        required: true
+        default: 'alpaca007'
+      team1_contains:
+        description: 'Substring of team1 name (e.g. Spain)'
+        required: true
+        default: 'Spain'
+      team2_contains:
+        description: 'Substring of team2 name (e.g. Belgium)'
+        required: true
+        default: 'Belgium'
+      predicted_advancing:
+        description: 'team1 or team2 (which team did they want to advance)'
+        required: true
+        default: 'team1'
+      predicted_goals_tier:
+        description: 'Goals tier: 0-1, 2-3, or 4+'
+        required: true
+        default: '2-3'
+      predicted_departure:
+        description: 'REGULAR, EXTRA_TIME, or PENALTY_SHOOTOUT'
+        required: true
+        default: 'REGULAR'
+      points:
+        description: 'Points to award (leave empty to auto-compute from correctness)'
+        required: false
+        default: ''
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Fix prediction
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          DISPLAY_NAME:         ${{ github.event.inputs.display_name }}
+          TEAM1_CONTAINS:       ${{ github.event.inputs.team1_contains }}
+          TEAM2_CONTAINS:       ${{ github.event.inputs.team2_contains }}
+          PREDICTED_ADVANCING:  ${{ github.event.inputs.predicted_advancing }}
+          PREDICTED_GOALS_TIER: ${{ github.event.inputs.predicted_goals_tier }}
+          PREDICTED_DEPARTURE:  ${{ github.event.inputs.predicted_departure }}
+          POINTS:               ${{ github.event.inputs.points }}
+        run: node scripts/admin-fix-prediction.js
