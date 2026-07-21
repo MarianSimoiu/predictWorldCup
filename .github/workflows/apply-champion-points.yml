@@ -3,8 +3,20 @@ name: Admin — Apply Champion Points
 on:
   workflow_dispatch:
     inputs:
+      winner:
+        description: 'Tournament winner team name (e.g. Spain)'
+        required: true
+        default: 'Spain'
+      finalist:
+        description: 'Finalist (runner-up) team name (e.g. Argentina)'
+        required: true
+        default: 'Argentina'
+      third_place:
+        description: '3rd place team name (e.g. England)'
+        required: true
+        default: 'England'
       dry_run:
-        description: 'Dry run (print what would happen without writing)'
+        description: 'Dry run — print results without writing to Firestore'
         type: boolean
         default: false
 
@@ -24,5 +36,8 @@ jobs:
       - name: Apply champion bonus points
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          WINNER:      ${{ github.event.inputs.winner }}
+          FINALIST:    ${{ github.event.inputs.finalist }}
+          THIRD_PLACE: ${{ github.event.inputs.third_place }}
+          DRY_RUN:     ${{ github.event.inputs.dry_run }}
         run: node scripts/apply-champion-points.js
