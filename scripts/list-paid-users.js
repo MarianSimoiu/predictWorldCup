@@ -26,7 +26,7 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
 initializeApp({ credential: cert(serviceAccount) });
 const db = getFirestore();
 
-const snap = await db.collection('users').where('isPaid', '==', true).get();
+const snap = await db.collection('users').where('hasPaid', '==', true).get();
 
 console.log(`Found ${snap.size} paid user(s):\n`);
 
@@ -35,7 +35,7 @@ snap.forEach((doc) => {
     console.log(`  ID:          ${doc.id}`);
     console.log(`  displayName: ${u.displayName || '(none)'}`);
     console.log(`  email:       ${u.email || '(none)'}`);
-    console.log(`  isPaid:      ${u.isPaid}`);
+    console.log(`  hasPaid:     ${u.hasPaid}`);
     console.log(`  totalPoints: ${u.totalPoints ?? 0}`);
     console.log();
 });
