@@ -12,6 +12,7 @@
     let lastSyncTime = $state(null);
     let syncStatus = $state('success');
     let timeRemainingStr = $state('');
+    let tournamentFinal = $state(false);
 
     let syncFailed = $derived(syncStatus === 'failed');
 
@@ -37,6 +38,7 @@
                 const data = docSnap.data();
                 if (data.lastSync) lastSyncTime = data.lastSync.toDate();
                 if (data.status) syncStatus = data.status;
+                tournamentFinal = !!data.tournamentFinal;
             }
         });
 
@@ -113,7 +115,16 @@
 <div class="leaderboard-page">
     <h1>🏆 Leaderboard</h1>
 
-    {#if lastSyncTime}
+    {#if tournamentFinal}
+        <div class="final-banner">
+            <span class="final-trophy">🏆</span>
+            <div class="final-text">
+                <span class="final-title">FINAL STANDINGS</span>
+                <span class="final-sub">Tournament complete — no further updates</span>
+            </div>
+            <span class="final-trophy">🏆</span>
+        </div>
+    {:else if lastSyncTime}
         <div class="sync-banner" class:sync-banner-paused={syncFailed}>
             <div class="sync-banner-item">
                 <span class="dot" class:pulse-success={!syncFailed} class:dot-paused={syncFailed}>●</span>
@@ -364,6 +375,40 @@
         color: #888;
         font-style: italic;
         padding: 2rem;
+    }
+
+    /* Final banner */
+    .final-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: clamp(1rem, 3vw, 2rem);
+        background: linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(251,191,36,0.05) 100%);
+        border: 1px solid rgba(251,191,36,0.35);
+        padding: 0.75rem 1.5rem;
+        border-radius: 50px;
+        width: fit-content;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .final-trophy { font-size: 1.3rem; }
+    .final-text {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.1rem;
+    }
+    .final-title {
+        font-size: clamp(0.8rem, 2.5vw, 0.95rem);
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        color: #fbbf24;
+        text-transform: uppercase;
+    }
+    .final-sub {
+        font-size: clamp(0.65rem, 1.8vw, 0.75rem);
+        color: #888;
     }
 
     /* Sync banner */
