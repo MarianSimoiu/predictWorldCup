@@ -12,6 +12,7 @@
  *
  * Env vars:
  *   FIREBASE_SERVICE_ACCOUNT – required in CI; falls back to local credentials file
+ *   WINNER / FINALIST / THIRD_PLACE – team names; if provided, writes config/championResult first
  *   DRY_RUN=true             – print what would happen without writing anything
  */
 
@@ -39,24 +40,42 @@ const db = getFirestore();
 const DRY_RUN = process.env.DRY_RUN === 'true';
 if (DRY_RUN) console.log('🔍 DRY RUN — no writes will be made\n');
 
-// Load champion result
-const resultSnap = await db.collection('config').doc('championResult').get();
-if (!resultSnap.exists) {
-    console.error('config/championResult not found in Firestore. Set the winner/finalist/thirdPlace before running this script.');
-    process.exit(1);
+// If env vars are provided, write/overwrite config/championResult first
+const envWinner     = process.env.WINNER?.trim()      || '';
+const envFinalist   = process.env.FINALIST?.trim()    || '';
+const envThirdPlace = process.env.THIRD_PLACE?.trim() || '';
+
+let winner, finalist, thirdPlace;
+
+if (envWinner && envFinalist && envThirdPlace) {
+    winner = envWinner;
+    finalist = envFinalist;
+    thirdPlace = envThirdPlace;
+    console.log('Writing config/championResult from env vars...');
+    if (!DRY_RUN) {
+        await db.collection('config').doc('championResult').set({ winner, finalist, thirdPlace }, { merge: true });
+        console.log('✅ config/championResult updated.\n');
+    } else {
+        console.log('(skipped in dry run)\n');
+    }
+} else {
+    const resultSnap = await db.collection('config').doc('championResult').get();
+    if (!resultSnap.exists) {
+        console.error('config/championResult not found. Pass WINNER / FINALIST / THIRD_PLACE env vars to set it.');
+        process.exit(1);
+    }
+    ({ winner, finalist, thirdPlace } = resultSnap.data());
+    if (!winner || !finalist || !thirdPlace) {
+        console.error('championResult is missing one or more fields (winner / finalist / thirdPlace).');
+        process.exit(1);
+    }
 }
 
-const { winner, finalist, thirdPlace } = resultSnap.data();
 console.log('Champion results:');
 console.log(`  Winner (16 pts):     ${winner}`);
 console.log(`  Finalist (10 pts):   ${finalist}`);
 console.log(`  3rd place (6 pts):   ${thirdPlace}`);
 console.log();
-
-if (!winner || !finalist || !thirdPlace) {
-    console.error('One or more championResult fields are missing (winner / finalist / thirdPlace).');
-    process.exit(1);
-}
 
 // Load all users
 const usersSnap = await db.collection('users').get();
