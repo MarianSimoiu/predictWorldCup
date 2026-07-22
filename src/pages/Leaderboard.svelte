@@ -27,6 +27,21 @@
 
     let filteredLeaderboard = $derived(leaderboard.map((user, i) => ({ ...user, rank: i + 1 })));
 
+    let activeTab = $state('leaderboard');
+
+    let currentUserIsPaid = $derived(
+        leaderboard.find(u => u.id === userStore.user?.uid)?.hasPaid ?? false
+    );
+
+    // Paid users in ranked order (prizes go to top 3 among paid participants)
+    let paidLeaderboard = $derived(filteredLeaderboard.filter(u => u.hasPaid));
+
+    const ENTRY_FEE = 50;
+    let prizePool   = $derived(paidLeaderboard.length * ENTRY_FEE);
+    let firstPrize  = $derived(Math.round(prizePool * 0.50));
+    let secondPrize = $derived(Math.round(prizePool * 0.30));
+    let thirdPrize  = $derived(Math.round(prizePool * 0.20));
+
     $effect(() => {
         if (!userStore.user) {
             push('/');
@@ -146,10 +161,64 @@
         </div>
     {/if}
 
+    {#if currentUserIsPaid}
+        <div class="tabs">
+            <button class="tab-btn" class:tab-active={activeTab === 'leaderboard'} onclick={() => activeTab = 'leaderboard'}>
+                🏆 Rankings
+            </button>
+            <button class="tab-btn" class:tab-active={activeTab === 'prizes'} onclick={() => activeTab = 'prizes'}>
+                💰 Prize Pool
+            </button>
+        </div>
+    {/if}
+
     {#if error}
         <ErrorMessage error={error} context="Leaderboard" />
     {:else if loading}
         <div class="loading">Loading rankings...</div>
+    {:else if activeTab === 'prizes'}
+        <!-- ── PRIZE TAB ── -->
+        <div class="prize-tab">
+            <div class="prize-pool-card">
+                <div class="prize-pool-title">Prize Pool</div>
+                <div class="prize-pool-amount">{prizePool} lei</div>
+                <div class="prize-pool-sub">{paidLeaderboard.length} participants × {ENTRY_FEE} lei entry fee</div>
+            </div>
+
+            <div class="prize-winners">
+                {#each [{rank:1, user: paidLeaderboard[0], prize: firstPrize, pct:'50%', medal:'🥇'},
+                        {rank:2, user: paidLeaderboard[1], prize: secondPrize, pct:'30%', medal:'🥈'},
+                        {rank:3, user: paidLeaderboard[2], prize: thirdPrize,  pct:'20%', medal:'🥉'}] as w}
+                    {#if w.user}
+                        <div class="prize-winner-row prize-rank-{w.rank}">
+                            <span class="pw-medal">{w.medal}</span>
+                            <div class="pw-info">
+                                <span class="pw-name">{w.user.displayName || w.user.email?.split('@')[0] || w.user.id.substring(0,6)}</span>
+                                <span class="pw-pts">{w.user.totalPoints} pts</span>
+                            </div>
+                            <div class="pw-prize">
+                                <span class="pw-amount">{w.prize} lei</span>
+                                <span class="pw-pct">{w.pct}</span>
+                            </div>
+                        </div>
+                    {/if}
+                {/each}
+            </div>
+
+            <div class="paid-list-section">
+                <div class="paid-list-title">💰 Paid Participants ({paidLeaderboard.length})</div>
+                <div class="paid-list">
+                    {#each paidLeaderboard as u}
+                        <div class="paid-list-row">
+                            <span class="paid-rank">#{u.rank}</span>
+                            <span class="paid-name">{u.displayName || u.email?.split('@')[0] || u.id.substring(0,6)}</span>
+                            <span class="paid-pts">{u.totalPoints} pts</span>
+                            <span class="paid-badge">✅ Paid</span>
+                        </div>
+                    {/each}
+                </div>
+            </div>
+        </div>
     {:else}
         <div class="lb-container">
             <!-- Header -->
@@ -233,6 +302,7 @@
         </div>
     {/if}
 </div>
+
 
 <style>
     .leaderboard-page {
@@ -484,4 +554,126 @@
         0%, 100% { opacity: 0.5; }
         50% { opacity: 1; }
     }
+
+    /* ── Tabs ── */
+    .tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: clamp(1rem, 3vw, 1.5rem);
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 4px;
+    }
+    .tab-btn {
+        flex: 1;
+        padding: 0.55rem 1rem;
+        border: none;
+        border-radius: 9px;
+        background: transparent;
+        color: #888;
+        font-size: clamp(0.8rem, 2.2vw, 0.9rem);
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+    }
+    .tab-btn:hover { color: #ccc; }
+    .tab-btn.tab-active {
+        background: rgba(255,255,255,0.1);
+        color: #fff;
+    }
+
+    /* ── Prize Tab ── */
+    .prize-tab {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+    .prize-pool-card {
+        background: linear-gradient(135deg, rgba(251,191,36,0.18) 0%, rgba(251,191,36,0.06) 100%);
+        border: 1px solid rgba(251,191,36,0.35);
+        border-radius: 16px;
+        padding: clamp(1.25rem, 4vw, 2rem);
+        text-align: center;
+    }
+    .prize-pool-title {
+        font-size: clamp(0.75rem, 2vw, 0.85rem);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #888;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+    }
+    .prize-pool-amount {
+        font-size: clamp(2.2rem, 8vw, 3.5rem);
+        font-weight: 900;
+        color: #fbbf24;
+        line-height: 1;
+    }
+    .prize-pool-sub {
+        margin-top: 0.4rem;
+        font-size: clamp(0.75rem, 2vw, 0.85rem);
+        color: #666;
+    }
+
+    .prize-winners {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+    .prize-winner-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: clamp(0.75rem, 2vw, 1rem) clamp(1rem, 3vw, 1.5rem);
+        border-radius: 12px;
+        border: 1px solid transparent;
+    }
+    .prize-rank-1 { background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.3); }
+    .prize-rank-2 { background: rgba(148,163,184,0.1); border-color: rgba(148,163,184,0.25); }
+    .prize-rank-3 { background: rgba(180,120,60,0.1);  border-color: rgba(180,120,60,0.25); }
+
+    .pw-medal { font-size: 1.6rem; flex-shrink: 0; }
+    .pw-info  { flex: 1; display: flex; flex-direction: column; gap: 0.1rem; }
+    .pw-name  { font-weight: 700; font-size: clamp(0.9rem, 2.5vw, 1.05rem); }
+    .pw-pts   { font-size: clamp(0.72rem, 1.8vw, 0.8rem); color: #666; }
+    .pw-prize { text-align: right; flex-shrink: 0; }
+    .pw-amount { display: block; font-size: clamp(1.1rem, 3.5vw, 1.4rem); font-weight: 800; color: #fbbf24; }
+    .pw-pct    { display: block; font-size: 0.72rem; color: #555; }
+
+    .prize-rank-1 .pw-name { color: #fbbf24; }
+    .prize-rank-2 .pw-name { color: #94a3b8; }
+    .prize-rank-3 .pw-name { color: #b47c3c; }
+
+    .paid-list-section {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+    .paid-list-title {
+        padding: 0.75rem 1.25rem;
+        font-size: clamp(0.72rem, 1.8vw, 0.8rem);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #666;
+        background: rgba(0,0,0,0.2);
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .paid-list { display: flex; flex-direction: column; }
+    .paid-list-row {
+        display: grid;
+        grid-template-columns: 36px 1fr auto auto;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 1.25rem;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        font-size: clamp(0.8rem, 2.2vw, 0.9rem);
+    }
+    .paid-list-row:last-child { border-bottom: none; }
+    .paid-rank  { color: #555; font-size: 0.78rem; font-weight: 700; }
+    .paid-name  { font-weight: 600; }
+    .paid-pts   { color: #888; font-size: 0.82rem; }
+    .paid-badge { color: #10b981; font-size: 0.75rem; font-weight: 700; }
 </style>
